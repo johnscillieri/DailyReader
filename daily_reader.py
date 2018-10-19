@@ -30,6 +30,8 @@ TODO
         auto scale to a fixed resolution (or not scale at all)
     pdftoppm - convert the short arguments to the full ones
     cleanup main function
+    take the absolute path to the epub for the config file
+    include the page numbers in the email subject
 """
 
 
