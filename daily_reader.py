@@ -22,18 +22,6 @@ from email_utils import create_message, send_message
 
 VERSION = "daily_reader 0.3b"
 
-"""
-TODO
-    exit if page to send > last available page
-    install a cron job
-    pdftoppm needs a calculation to determine the optimal -r argument, it should
-        auto scale to a fixed resolution (or not scale at all)
-    pdftoppm - convert the short arguments to the full ones
-    cleanup main function
-    take the absolute path to the epub for the config file
-    include the page numbers in the email subject
-"""
-
 
 def main():
     """ Parse args, read/write config, and call primary function """
