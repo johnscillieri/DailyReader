@@ -1,12 +1,12 @@
 """
 Usage:
-  daily_reader.py <epub> [--first=<first>] [--last=<last> | --count=<count>] [--resolution=<resolution>]
+  daily_reader.py <epub> [--first=<first>] [--count=<count>] [--resolution=<resolution>]
   daily_reader.py (-h | --help)
   daily_reader.py --version
 
 Options:
   -f --first=<first>             First page to send
-  -l --last=<last>               Last page to send
+  -c --count=<count>             Number of pages to send [default:5]
   -r --resolution=<resolution>   Resolution to scale pages in DPI, default is 150
   -h --help                      Show this screen.
   --version                      Show version.
@@ -16,6 +16,7 @@ import os
 import sys
 
 import docopt
+import toml
 
 from email_utils import create_message, send_message
 
@@ -34,8 +35,35 @@ TODO
 """
 
 
-def main(args):
-    full_epub_path = os.path.abspath(args.epub)
+def main():
+    """ Parse args, read/write config, and call primary function """
+    args = convert_args(docopt.docopt(__doc__, version=VERSION))
+
+    # Needed for stupid Gmail auth process, it grabs any of our args for some reason
+    sys.argv.pop()
+
+    config_path = os.path.join(os.path.dirname(__file__), "config.toml")
+    config = toml.load(config_path)
+    if args.epub in config["books"]:
+        book_settings = config["books"][args.epub]
+        first = int(book_settings.get("first", 1))
+        count = int(book_settings.get("count", 5))
+
+    first = 1 if not args.first else int(args.first)
+    if int(args.count) != count:
+        count = int(args.count)
+
+    send_daily_email(book_path=args.epub, first=first, count=count)
+
+    config["books"][args.epub] = {"first": first + count, "count": count}
+    with open(config_path, "w") as output_handle:
+        toml.dump(config, output_handle)
+
+    print("Done!")
+
+
+def send_daily_email(book_path, first=1, count=5):
+    full_epub_path = os.path.abspath(book_path)
     base_name = os.path.splitext(full_epub_path)[0]
 
     pdf_path = f"{base_name}.pdf"
@@ -57,15 +85,9 @@ def main(args):
     else:
         print("PNG pages found, skipping creation...")
 
-    # This should read the marker, then either the last or count arguments
-    first = 1 if not args.first else int(args.first)
-    last = 5 if not args.last else int(args.last)
-
-    print(f"Sending email, pages {first} to {last}...")
-    message = create_message(pages_folder=pages_folder, first=first, last=last)
+    print(f"Sending email, pages {first} to {first+count-1}...")
+    message = create_message(pages_folder=pages_folder, first=first, count=count)
     send_message(message)
-
-    print("Done!")
 
 
 def convert_args(dictionary):
@@ -80,7 +102,4 @@ def convert_args(dictionary):
 
 
 if __name__ == "__main__":
-    arguments = convert_args(docopt.docopt(__doc__, version=VERSION))
-    # Needed for stupid Gmail auth process
-    sys.argv.pop()
-    main(arguments)
+    main()
