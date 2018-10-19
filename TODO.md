@@ -2,6 +2,9 @@
 
 -   Include the page numbers in the email subject
 -   Check if we can just email pages of the PDF?
+    -   pdftk full-pdf.pdf cat 12-15 output outfile_p12-15.pdf
+-   Include the last prior page in today's email (for context)
+-   Update the README with more info on what it does & how it works
 -   Take the absolute path to the epub for the config file
 -   Send a message (Pick a new book!) & exit if first page > last available page
 -   Cleanup main function

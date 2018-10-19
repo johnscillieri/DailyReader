@@ -20,7 +20,7 @@ import toml
 
 from email_utils import create_message, send_message
 
-VERSION = "daily_reader 0.3b"
+VERSION = "daily_reader 0.5b"
 
 
 def main():
