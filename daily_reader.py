@@ -6,7 +6,7 @@ Usage:
 
 Options:
   -f --first=<first>             First page to send
-  -c --count=<count>             Number of pages to send [default:5]
+  -c --count=<count>             Number of pages to send
   -r --resolution=<resolution>   Resolution to scale pages in DPI, default is 150
   -h --help                      Show this screen.
   --version                      Show version.
@@ -24,8 +24,6 @@ VERSION = "daily_reader 0.3b"
 
 """
 TODO
-    Fix sending pages that are not 1-5
-    create a marker file for the last page sent
     exit if page to send > last available page
     install a cron job
     pdftoppm needs a calculation to determine the optimal -r argument, it should
@@ -44,25 +42,32 @@ def main():
 
     config_path = os.path.join(os.path.dirname(__file__), "config.toml")
     config = toml.load(config_path)
-    if args.epub in config["books"]:
-        book_settings = config["books"][args.epub]
-        first = int(book_settings.get("first", 1))
-        count = int(book_settings.get("count", 5))
+    if args.epub not in config["books"]:
+        config["books"][args.epub] = {"first": 1, "count": 5}
 
-    first = 1 if not args.first else int(args.first)
-    if int(args.count) != count:
-        count = int(args.count)
+    book_settings = config["books"][args.epub]
 
-    send_daily_email(book_path=args.epub, first=first, count=count)
+    if args.first:
+        book_settings["first"] = int(args.first)
 
-    config["books"][args.epub] = {"first": first + count, "count": count}
+    if args.count:
+        book_settings["count"] = int(args.count)
+
+    send_daily_email(
+        email_address=config["email_address"],
+        book_path=args.epub,
+        first=book_settings["first"],
+        count=book_settings["count"],
+    )
+
+    book_settings["first"] += book_settings["count"]
     with open(config_path, "w") as output_handle:
         toml.dump(config, output_handle)
 
     print("Done!")
 
 
-def send_daily_email(book_path, first=1, count=5):
+def send_daily_email(email_address, book_path, first=1, count=5):
     full_epub_path = os.path.abspath(book_path)
     base_name = os.path.splitext(full_epub_path)[0]
 
@@ -86,7 +91,10 @@ def send_daily_email(book_path, first=1, count=5):
         print("PNG pages found, skipping creation...")
 
     print(f"Sending email, pages {first} to {first+count-1}...")
-    message = create_message(pages_folder=pages_folder, first=first, count=count)
+    subject = f"Daily Reading - {os.path.basename(book_path)}"
+    message = create_message(
+        email_address=email_address, subject=subject, pages_folder=pages_folder, first=first, count=count
+    )
     send_message(message)
 
 
