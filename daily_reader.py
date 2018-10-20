@@ -82,8 +82,11 @@ def send_daily_email(email_address, book_path, first=1, count=5):
     else:
         print("PNG pages found, skipping creation...")
 
-    print(f"Sending email, pages {first} to {first+count-1}...")
-    subject = f"Daily Reading - {os.path.basename(book_path)} - pages {first}-{first+count-1}"
+    total_pages = len(os.listdir(pages_folder))
+    percent = int((first + count - 1) / total_pages * 100)
+    page_message = f"page {first}-{first+count-1} of {total_pages} ({percent}%)"
+    print(f"Sending email, {page_message}...")
+    subject = f"DailyReader: {os.path.basename(book_path)} - {page_message}"
     message = create_message(
         email_address=email_address, subject=subject, pages_folder=pages_folder, first=first, count=count
     )
