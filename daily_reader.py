@@ -51,11 +51,12 @@ def main():
     """ Parse args, read/write config, and call primary function """
     args = convert_args(docopt.docopt(__doc__, version=VERSION))
 
-    # Needed for stupid Gmail auth process, it grabs our args for some reason
-    sys.argv.pop()
-
     config_path = os.path.join(os.path.dirname(__file__), "config.toml")
-    config = toml.load(config_path)
+    if os.path.exists(config_path):
+        config = toml.load(config_path)
+    else:
+        email_address = input("Please provide an email address to use: ")
+        config = {"books": {}, "email_address": email_address.strip()}
 
     book_name = os.path.basename(args.book)
 
@@ -104,7 +105,7 @@ def send_daily_email(email_address, book_path, first=1, count=5):
         os.chdir(pages_folder)
         pages_command = f'pdftoppm -png -f 1 -l 0 -r 125 "{pdf_path}" page'
         os.system(pages_command)
-        os.chdir(os.path.dirname(pages_folder))
+        os.chdir(os.path.dirname(__file__))
     else:
         print("PNG pages found, skipping creation...")
 
@@ -167,6 +168,9 @@ def send_message(message):
     store = oauth2client.file.Storage(token_file)
     creds = store.get()
     if not creds or creds.invalid:
+        # Needed for stupid Gmail auth process, it grabs our args for some reason
+        sys.argv.pop()
+
         # If modifying these scopes, delete the file token.json.
         authorization_scope = "https://www.googleapis.com/auth/gmail.send"
         flow = oauth2client.client.flow_from_clientsecrets(creds_file, authorization_scope)
