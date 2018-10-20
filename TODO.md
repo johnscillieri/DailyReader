@@ -1,6 +1,5 @@
 # TODO
 
--   Rename epub argument to book
 -   Cleanup code
 -   Create default config.toml if not found
 -   Convert the short arguments to the full ones in the os.system call

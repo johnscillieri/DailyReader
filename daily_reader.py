@@ -29,6 +29,7 @@ Options:
 import base64
 import os
 import sys
+from collections import namedtuple
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -40,7 +41,7 @@ from googleapiclient.errors import HttpError
 from httplib2 import Http
 from oauth2client import file, client, tools
 
-VERSION = "daily_reader 0.5b"
+VERSION = "daily_reader 0.7b"
 
 
 def main():
@@ -53,7 +54,7 @@ def main():
     config_path = os.path.join(os.path.dirname(__file__), "config.toml")
     config = toml.load(config_path)
 
-    book_name = os.path.basename(args.epub)
+    book_name = os.path.basename(args.book)
 
     if book_name not in config["books"]:
         config["books"][book_name] = {"first": 1, "new_pages": 5}
@@ -68,7 +69,7 @@ def main():
 
     send_daily_email(
         email_address=config["email_address"],
-        book_path=args.epub,
+        book_path=args.book,
         first=book_settings["first"],
         count=book_settings["new_pages"] + 1,
     )
@@ -81,6 +82,7 @@ def main():
 
 
 def send_daily_email(email_address, book_path, first=1, count=5):
+    """ Send the specified pages of the book to the given email address """
     full_book_path = os.path.abspath(book_path)
     base_name = os.path.splitext(full_book_path)[0]
 
@@ -172,13 +174,13 @@ def send_message(message):
     creds = store.get()
     if not creds or creds.invalid:
         # If modifying these scopes, delete the file token.json.
-        flow = client.flow_from_clientsecrets(creds_file, "https://www.googleapis.com/auth/gmail.send")
+        authorization_scope = "https://www.googleapis.com/auth/gmail.send"
+        flow = client.flow_from_clientsecrets(creds_file, authorization_scope)
         creds = tools.run_flow(flow, store)
     service = build("gmail", "v1", http=creds.authorize(Http()))
 
     try:
         message = service.users().messages().send(userId="me", body=message).execute()
-        print("Message Id: %s" % message["id"])
         return message
     except HttpError as error:
         print("An error occurred: %s" % error)
@@ -186,8 +188,6 @@ def send_message(message):
 
 def convert_args(dictionary):
     """ Convert a docopt dict to a namedtuple """
-    from collections import namedtuple
-
     new_dict = {}
     for key, value in dictionary.items():
         key = key.replace("--", "").replace("-", "_").replace("<", "").replace(">", "").lower()
