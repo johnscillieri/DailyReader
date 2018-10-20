@@ -44,7 +44,7 @@ import oauth2client.tools
 import toml
 
 
-VERSION = "daily_reader 0.7b"
+VERSION = "daily_reader 0.8b"
 
 
 def main():
