@@ -88,32 +88,14 @@ def main():
 def send_daily_email(email_address, book_path, first=1, count=5):
     """ Send the specified pages of the book to the given email address """
     full_book_path = os.path.abspath(book_path)
-    base_name = os.path.splitext(full_book_path)[0]
 
-    pdf_path = f"{base_name}.pdf"
-    if not os.path.exists(pdf_path):
-        print("Converting book to pdf...")
-        convert_command = f'ebook-convert "{full_book_path}" "{pdf_path}"'
-        os.system(convert_command)
-    else:
-        print("PDF found, skipping conversion...")
+    path_to_pdf = create_pdf(full_book_path)
 
-    pages_folder = f"{base_name}_pages"
-    if not os.path.exists(pages_folder):
-        print("Creating PNG pages...")
-        os.mkdir(pages_folder)
-        os.chdir(pages_folder)
-        pages_command = f'pdftoppm -png -f 1 -l 0 -r 125 "{pdf_path}" page'
-        os.system(pages_command)
-        os.chdir(os.path.dirname(__file__))
-    else:
-        print("PNG pages found, skipping creation...")
+    pages_folder = create_png_pages(path_to_pdf)
 
     total_pages = len(os.listdir(pages_folder))
     percent = int((first + count - 1) / total_pages * 100)
-    page_message = f"page {first}-{first+count-1} of {total_pages} ({percent}%)"
-    print(f"Sending email, {page_message}...")
-    subject = f"DailyReader: {os.path.basename(book_path)} - {page_message}"
+    subject = f"DailyReader: {os.path.basename(book_path)} - page {first}-{first+count-1} of {total_pages} ({percent}%)"
     message = create_message(
         email_address=email_address,
         subject=subject,
@@ -121,7 +103,42 @@ def send_daily_email(email_address, book_path, first=1, count=5):
         first=first,
         count=count,
     )
+
+    print(f"Sending {subject}...")
     send_message(message)
+
+
+def create_pdf(path_to_book):
+    """ Call ebook-convert to create a PDF from the provided book """
+    path_no_ext = os.path.splitext(path_to_book)[0]
+    pdf_output_path = f"{path_no_ext}.pdf"
+
+    if os.path.exists(pdf_output_path):
+        print("PDF found, skipping conversion...")
+        return pdf_output_path
+
+    print("Converting book to pdf...")
+    convert_command = f'ebook-convert "{path_to_book}" "{pdf_output_path}"'
+    os.system(convert_command)
+    return pdf_output_path
+
+
+def create_png_pages(path_to_pdf):
+    """ Create a folder of PNG pages using the supplied PDF """
+    path_no_ext = os.path.splitext(path_to_pdf)[0]
+    pages_folder = f"{path_no_ext}_pages"
+
+    if os.path.exists(pages_folder):
+        print("PNG pages found, skipping creation...")
+        return pages_folder
+
+    print("Creating PNG pages...")
+    os.mkdir(pages_folder)
+    os.chdir(pages_folder)
+    pages_command = f'pdftoppm -png -f 1 -l 0 -r 125 "{path_to_pdf}" page'
+    os.system(pages_command)
+    os.chdir(os.path.dirname(__file__))
+    return pages_folder
 
 
 def create_message(email_address, subject, pages_folder, first, count):
