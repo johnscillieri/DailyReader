@@ -35,11 +35,14 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 
 import docopt
-import toml
-import oauth2client
 import googleapiclient.discovery
 import googleapiclient.errors
 import httplib2
+import oauth2client.client
+import oauth2client.file
+import oauth2client.tools
+import toml
+
 
 VERSION = "daily_reader 0.7b"
 
@@ -139,7 +142,7 @@ def create_message(email_address, subject, pages_folder, first, count):
     msg_alternative.attach(msg_text)
 
     # We reference the image in the IMG SRC attribute by the ID we give it below
-    msg_text = "".join([f'<img src="cid:image{i}">'] for i in range(first, first + count))
+    msg_text = "".join([f'<img src="cid:image{i}">' for i in range(first, first + count)])
     msg_alternative.attach(MIMEText(msg_text, "html"))
 
     for i in range(first, first + count):
