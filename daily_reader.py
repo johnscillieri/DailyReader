@@ -1,6 +1,21 @@
 """
+Automates emailing pages from a book, keeping track of where you left off.
+
+Useful as a cron job to create a regular reading habit.
+
+Converts the book to a PDF for a stable rendering, then splits the pages of the
+pdf into individual PNGs to include inline in an email.
+
+Should support any format supported by Calibre (epub, mobi, pdf, etc)
+
+The --new-pages argument is the number of NEW pages to send. The last page of
+the prior batch is included as the first page of the next email so the reader
+can maintain context. For example, if --new-pages is set to 5, and your last
+batch was pages 5-10, the next email that gets sent will be six pages long,
+pages 10-15, inclusive.
+
 Usage:
-  daily_reader.py <epub> [--first=<first>] [--new-pages=<number>]
+  daily_reader.py <book> [--first=<first>] [--new-pages=<number>]
   daily_reader.py (-h | --help)
   daily_reader.py --version
 
@@ -11,13 +26,19 @@ Options:
   --version                    Show version.
 
 """
+import base64
 import os
 import sys
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 
 import docopt
 import toml
-
-from email_utils import create_message, send_message
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+from httplib2 import Http
+from oauth2client import file, client, tools
 
 VERSION = "daily_reader 0.5b"
 
@@ -60,13 +81,13 @@ def main():
 
 
 def send_daily_email(email_address, book_path, first=1, count=5):
-    full_epub_path = os.path.abspath(book_path)
-    base_name = os.path.splitext(full_epub_path)[0]
+    full_book_path = os.path.abspath(book_path)
+    base_name = os.path.splitext(full_book_path)[0]
 
     pdf_path = f"{base_name}.pdf"
     if not os.path.exists(pdf_path):
-        print("Converting epub to pdf...")
-        convert_command = f'ebook-convert "{full_epub_path}" "{pdf_path}"'
+        print("Converting book to pdf...")
+        convert_command = f'ebook-convert "{full_book_path}" "{pdf_path}"'
         os.system(convert_command)
     else:
         print("PDF found, skipping conversion...")
@@ -91,6 +112,76 @@ def send_daily_email(email_address, book_path, first=1, count=5):
         email_address=email_address, subject=subject, pages_folder=pages_folder, first=first, count=count
     )
     send_message(message)
+
+
+def create_message(email_address, subject, pages_folder, first, count):
+    """ Create a message that has the correct number of attachments """
+
+    # Create the root message and fill in the from, to, and subject headers
+    msg_root = MIMEMultipart("related")
+    msg_root["Subject"] = subject
+    msg_root["From"] = email_address
+    msg_root["To"] = email_address
+    msg_root.preamble = "This is a multi-part message in MIME format."
+
+    # Encapsulate the plain and HTML versions of the message body in an
+    # 'alternative' part, so message agents can decide which they want to display.
+    msg_alternative = MIMEMultipart("alternative")
+    msg_root.attach(msg_alternative)
+
+    msg_text = MIMEText("There is no alternative plain text message!")
+    msg_alternative.attach(msg_text)
+
+    # We reference the image in the IMG SRC attribute by the ID we give it below
+    msg_text = ""
+    for i in range(first, first + count):
+        msg_text += f'<img src="cid:image{i}">'
+    msg_alternative.attach(MIMEText(msg_text, "html"))
+
+    # This example assumes the image is in the current directory
+    os.chdir(pages_folder)
+    for i in range(first, first + count):
+        input_file = f"page-{i:03}.png"
+        print(f"Adding page: {input_file}...")
+        with open(input_file, "rb") as input_handle:
+            msg_image = MIMEImage(input_handle.read())
+
+        # Define the image's ID as referenced above
+        msg_image.add_header("Content-ID", f"<image{i}>")
+        msg_root.attach(msg_image)
+    os.chdir(os.path.dirname(pages_folder))
+
+    payload = base64.urlsafe_b64encode(msg_root.as_string().encode("ascii"))
+    return {"raw": payload.decode("ascii")}
+
+
+def send_message(message):
+    """Send an email message.
+
+    Args:
+    service: Authorized Gmail API service instance.
+    message: Message to be sent.
+
+    Returns:
+    Sent Message.
+    """
+    token_file = os.path.join(os.path.dirname(__file__), "token.json")
+    creds_file = os.path.join(os.path.dirname(__file__), "credentials.json")
+
+    store = file.Storage(token_file)
+    creds = store.get()
+    if not creds or creds.invalid:
+        # If modifying these scopes, delete the file token.json.
+        flow = client.flow_from_clientsecrets(creds_file, "https://www.googleapis.com/auth/gmail.send")
+        creds = tools.run_flow(flow, store)
+    service = build("gmail", "v1", http=creds.authorize(Http()))
+
+    try:
+        message = service.users().messages().send(userId="me", body=message).execute()
+        print("Message Id: %s" % message["id"])
+        return message
+    except HttpError as error:
+        print("An error occurred: %s" % error)
 
 
 def convert_args(dictionary):
