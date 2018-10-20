@@ -81,7 +81,7 @@ def send_daily_email(email_address, book_path, first=1, count=5):
         print("PNG pages found, skipping creation...")
 
     print(f"Sending email, pages {first} to {first+count-1}...")
-    subject = f"Daily Reading - {os.path.basename(book_path)}"
+    subject = f"Daily Reading - {os.path.basename(book_path)} - pages {first}-{first+count}"
     message = create_message(
         email_address=email_address, subject=subject, pages_folder=pages_folder, first=first, count=count
     )
