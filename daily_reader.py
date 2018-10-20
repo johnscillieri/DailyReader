@@ -1,14 +1,14 @@
 """
 Usage:
-  daily_reader.py <epub> [--first=<first>] [--count=<count>]
+  daily_reader.py <epub> [--first=<first>] [--new-pages=<number>]
   daily_reader.py (-h | --help)
   daily_reader.py --version
 
 Options:
-  -f --first=<first>             First page to send
-  -c --count=<count>             Number of pages to send
-  -h --help                      Show this screen.
-  --version                      Show version.
+  -f --first=<first>           First page to send
+  -n --new-pages=<number>      Number of new pages to send
+  -h --help                    Show this screen.
+  --version                    Show version.
 
 """
 import os
@@ -35,24 +35,24 @@ def main():
     book_name = os.path.basename(args.epub)
 
     if book_name not in config["books"]:
-        config["books"][book_name] = {"first": 1, "count": 5}
+        config["books"][book_name] = {"first": 1, "new_pages": 5}
 
     book_settings = config["books"][book_name]
 
     if args.first:
         book_settings["first"] = int(args.first)
 
-    if args.count:
-        book_settings["count"] = int(args.count)
+    if args.new_pages:
+        book_settings["new_pages"] = int(args.new_pages)
 
     send_daily_email(
         email_address=config["email_address"],
         book_path=args.epub,
         first=book_settings["first"],
-        count=book_settings["count"] + 1,
+        count=book_settings["new_pages"] + 1,
     )
 
-    book_settings["first"] += book_settings["count"]
+    book_settings["first"] += book_settings["new_pages"]
     with open(config_path, "w") as output_handle:
         toml.dump(config, output_handle)
 
