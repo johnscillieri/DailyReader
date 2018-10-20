@@ -36,10 +36,10 @@ from email.mime.image import MIMEImage
 
 import docopt
 import toml
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
-from httplib2 import Http
-from oauth2client import file, client, tools
+import oauth2client
+import googleapiclient.discovery
+import googleapiclient.errors
+import httplib2
 
 VERSION = "daily_reader 0.7b"
 
@@ -161,15 +161,15 @@ def send_message(message):
     token_file = os.path.join(os.path.dirname(__file__), "token.json")
     creds_file = os.path.join(os.path.dirname(__file__), "credentials.json")
 
-    store = file.Storage(token_file)
+    store = oauth2client.file.Storage(token_file)
     creds = store.get()
     if not creds or creds.invalid:
         # If modifying these scopes, delete the file token.json.
         authorization_scope = "https://www.googleapis.com/auth/gmail.send"
-        flow = client.flow_from_clientsecrets(creds_file, authorization_scope)
-        creds = tools.run_flow(flow, store)
+        flow = oauth2client.client.flow_from_clientsecrets(creds_file, authorization_scope)
+        creds = oauth2client.tools.run_flow(flow, store)
 
-    service = build("gmail", "v1", http=creds.authorize(Http()))
+    service = googleapiclient.discovery.build("gmail", "v1", http=creds.authorize(httplib2.Http()))
 
     payload = base64.urlsafe_b64encode(message.as_string().encode("ascii"))
     gmail_payload = {"raw": payload.decode("ascii")}
@@ -177,7 +177,7 @@ def send_message(message):
     try:
         message = service.users().messages().send(userId="me", body=gmail_payload).execute()
         return message
-    except HttpError as error:
+    except googleapiclient.errors.HttpError as error:
         print("An error occurred: %s" % error)
 
 
