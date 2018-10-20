@@ -1,7 +1,5 @@
 # DailyReader
 
-This is super, super alpha. Don't use this yet, it doesn't work.
-
 Automates emailing pages from a book, keeping track of where you left off.
 
 Useful as a cron job to create a regular reading habit.
