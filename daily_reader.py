@@ -1,13 +1,12 @@
 """
 Usage:
-  daily_reader.py <epub> [--first=<first>] [--count=<count>] [--resolution=<resolution>]
+  daily_reader.py <epub> [--first=<first>] [--count=<count>]
   daily_reader.py (-h | --help)
   daily_reader.py --version
 
 Options:
   -f --first=<first>             First page to send
   -c --count=<count>             Number of pages to send
-  -r --resolution=<resolution>   Resolution to scale pages in DPI, default is 150
   -h --help                      Show this screen.
   --version                      Show version.
 
