@@ -48,7 +48,7 @@ def main():
     """ Parse args, read/write config, and call primary function """
     args = convert_args(docopt.docopt(__doc__, version=VERSION))
 
-    # Needed for stupid Gmail auth process, it grabs any of our args for some reason
+    # Needed for stupid Gmail auth process, it grabs our args for some reason
     sys.argv.pop()
 
     config_path = os.path.join(os.path.dirname(__file__), "config.toml")
@@ -111,7 +111,11 @@ def send_daily_email(email_address, book_path, first=1, count=5):
     print(f"Sending email, {page_message}...")
     subject = f"DailyReader: {os.path.basename(book_path)} - {page_message}"
     message = create_message(
-        email_address=email_address, subject=subject, pages_folder=pages_folder, first=first, count=count
+        email_address=email_address,
+        subject=subject,
+        pages_folder=pages_folder,
+        first=first,
+        count=count,
     )
     send_message(message)
 
@@ -135,15 +139,11 @@ def create_message(email_address, subject, pages_folder, first, count):
     msg_alternative.attach(msg_text)
 
     # We reference the image in the IMG SRC attribute by the ID we give it below
-    msg_text = ""
-    for i in range(first, first + count):
-        msg_text += f'<img src="cid:image{i}">'
+    msg_text = "".join([f'<img src="cid:image{i}">'] for i in range(first, first + count))
     msg_alternative.attach(MIMEText(msg_text, "html"))
 
-    # This example assumes the image is in the current directory
-    os.chdir(pages_folder)
     for i in range(first, first + count):
-        input_file = f"page-{i:03}.png"
+        input_file = os.path.join(pages_folder, f"page-{i:03}.png")
         print(f"Adding page: {input_file}...")
         with open(input_file, "rb") as input_handle:
             msg_image = MIMEImage(input_handle.read())
@@ -151,22 +151,13 @@ def create_message(email_address, subject, pages_folder, first, count):
         # Define the image's ID as referenced above
         msg_image.add_header("Content-ID", f"<image{i}>")
         msg_root.attach(msg_image)
-    os.chdir(os.path.dirname(pages_folder))
 
-    payload = base64.urlsafe_b64encode(msg_root.as_string().encode("ascii"))
-    return {"raw": payload.decode("ascii")}
+    return msg_root
 
 
 def send_message(message):
-    """Send an email message.
+    """ Send a MIMEMultipart email message via gmail """
 
-    Args:
-    service: Authorized Gmail API service instance.
-    message: Message to be sent.
-
-    Returns:
-    Sent Message.
-    """
     token_file = os.path.join(os.path.dirname(__file__), "token.json")
     creds_file = os.path.join(os.path.dirname(__file__), "credentials.json")
 
@@ -177,10 +168,14 @@ def send_message(message):
         authorization_scope = "https://www.googleapis.com/auth/gmail.send"
         flow = client.flow_from_clientsecrets(creds_file, authorization_scope)
         creds = tools.run_flow(flow, store)
+
     service = build("gmail", "v1", http=creds.authorize(Http()))
 
+    payload = base64.urlsafe_b64encode(message.as_string().encode("ascii"))
+    gmail_payload = {"raw": payload.decode("ascii")}
+
     try:
-        message = service.users().messages().send(userId="me", body=message).execute()
+        message = service.users().messages().send(userId="me", body=gmail_payload).execute()
         return message
     except HttpError as error:
         print("An error occurred: %s" % error)
@@ -190,7 +185,8 @@ def convert_args(dictionary):
     """ Convert a docopt dict to a namedtuple """
     new_dict = {}
     for key, value in dictionary.items():
-        key = key.replace("--", "").replace("-", "_").replace("<", "").replace(">", "").lower()
+        key = key.replace("--", "").replace("-", "_")
+        key = key.replace("<", "").replace(">", "").lower()
         new_dict[key] = value
     return namedtuple("DocoptArgs", new_dict.keys())(**new_dict)
 
