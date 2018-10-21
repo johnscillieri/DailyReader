@@ -2,4 +2,5 @@ token.json
 credentials.json
 books
 config.toml
+config.cfg
 *.pyc
