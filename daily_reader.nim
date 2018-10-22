@@ -5,6 +5,7 @@ import httpclient
 import os
 import parsecfg
 import strformat
+import strutils
 
 import commandeer
 
@@ -57,35 +58,101 @@ proc main() =
         exitoption "version", "v", version
         errormsg usage_text
 
+    let book_base_name = os.splitFile(book)[1]
+
     var config = loadConfig("config.cfg")
-    echo config.getSectionValue("books.EffectiveExecutive.pdf", "first")
+    let email_address = config.getSectionValue("", "email_address")
+    let first_config = config.getSectionValue(book_base_name, "first")
+    let count_config = config.getSectionValue(book_base_name, "count")
 
-    config.setSectionKey("", "email_address", "John@Scillieri.com")
-    echo config
+    let full_book_path = absolutePath(book)
 
-    echo "Arguments:"
-    echo book
-    echo new_pages
-    echo first
-    # send_email(book)
+    let path_to_pdf = create_pdf(full_book_path)
+
+    let pages_folder = create_png_pages(path_to_pdf)
+
+    # send_daily_email(email_address=email_address,
+    #                  book=book,
+    #                  first=first,
+    #                  count=new_pages,
+    #                  config=config)
+
+    echo("Done!")
 
 
-proc send_email(book, mailgun_api_key, mailgun_sender, mailgun_api_url: string) =
+proc create_pdf(path_to_book: string): string =
+    ## Call ebook-convert to create a PDF from the provided book
+    result = changeFileExt(path_to_book, "pdf")
+
+    if os.fileExists(result):
+        echo("PDF found, skipping conversion...")
+        return result
+
+    echo("Converting book to pdf...")
+    let convert_command = &"ebook-convert \"{path_to_book}\" \"{result}\""
+    discard os.execShellCmd(convert_command)
+    return result
+
+
+proc create_png_pages(path_to_pdf: string): string =
+    ## Create a folder of PNG pages using the supplied PDF
+    let path_no_ext = changeFileExt(path_to_pdf, "")
+    result = &"{path_no_ext}_pages"
+
+    if os.dirExists(result):
+        echo("PNG pages found, skipping creation...")
+        return result
+
+    echo("Creating PNG pages...")
+    let previousDir = os.getCurrentDir()
+    os.createDir(result)
+    os.setCurrentDir(result)
+    let pages_command = &"pdftoppm -png -f 1 -l 0 -r 125 \"{path_to_pdf}\" page"
+    discard os.execShellCmd(pages_command)
+    os.setCurrentDir(previousDir)
+    return result
+
+
+proc send_daily_email(email_address: string,
+                      book: string,
+                      first=1,
+                      count=5,
+                      config: Config) =
+
+    let mailgun_sender = config.getSectionValue("mailgun", "sender")
+
+    let data = {
+        "from": &"DailyReader <{mailgun_sender}>",
+        "to": email_address,
+        "subject": &"DailyReader: {os.splitFile(book)[1]}",
+        "text": "There is no alternative plain text message!",
+        "html": """<html>
+                    <img src="cid:page-037.png">
+                    <img src="cid:page-038.png">
+                    <img src="cid:page-039.png">
+                    <img src="cid:page-040.png">
+                    <img src="cid:page-041.png">
+                   </html>""",
+    }
+
     var client = newHttpClient()
+
+    let mailgun_api_key = config.getSectionValue("mailgun", "api_key")
+    let mailgun_api_url = config.getSectionValue("mailgun", "api_url")
 
     let encoded_credentials = encode(&"api:{mailgun_api_key}")
     client.headers = newHttpHeaders({"Authorization": &"Basic {encoded_credentials}"})
 
-    let data = {
-        "from": &"DailyReader <{mailgun_sender}>",
-        "to": "John Scillieri <john@scillieri.com>",
-        "subject": &"DailyReader: {book}",
-        "text": "Congratulations John Scillieri, you just sent an email with Mailgun!  You are truly awesome!",
-        "html": "<html>Inline image here: <img src=\"cid:page-037.png\"></html>",
-    }
     var multipart = newMultipartData(data)
-    multipart.addFiles({"inline": "books/EffectiveExecutive_pages/page-037.png"})
-    echo client.postContent(mailgun_api_url, multipart = multipart)
+    multipart.addFiles({
+        "inline": "books/EffectiveExecutive_pages/page-037.png",
+        "inline": "books/EffectiveExecutive_pages/page-038.png",
+        "inline": "books/EffectiveExecutive_pages/page-039.png",
+        "inline": "books/EffectiveExecutive_pages/page-040.png",
+        "inline": "books/EffectiveExecutive_pages/page-041.png",
+    })
+
+    echo(client.postContent(mailgun_api_url, multipart = multipart))
 
 
 when isMainModule:
