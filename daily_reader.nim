@@ -1,4 +1,4 @@
-{.reorder: on.}
+{.experimental: "codeReordering".}
 
 import base64
 import httpclient
@@ -48,7 +48,7 @@ pages 10-15, inclusive.
 {usage_text}
 """
 
-
+## TODO - Break this up into parsing args & config & sending the message
 proc main() =
     commandline:
         argument book, string
@@ -112,7 +112,7 @@ proc create_png_pages(path_to_pdf: string): string =
     os.setCurrentDir(previousDir)
     return result
 
-
+## TODO - Break this up into create_message/send_message
 proc send_daily_email(email_address: string,
                       book: string,
                       first=1,
