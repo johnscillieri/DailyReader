@@ -4,6 +4,7 @@ import base64
 import httpclient
 import os
 import parsecfg
+import sequtils
 import strformat
 import strutils
 
@@ -12,7 +13,7 @@ import commandeer
 template get_filename: string = instantiationInfo().filename.splitFile()[1]
 const app_name = get_filename()
 
-const version = "daily_reader 0.8b"
+const version = &"{app_name} 0.8b"
 
 const usage_text = &"""
 
@@ -58,24 +59,29 @@ proc main() =
         exitoption "version", "v", version
         errormsg usage_text
 
-    let book_base_name = os.splitFile(book)[1]
-
-    var config = loadConfig("config.cfg")
-    let email_address = config.getSectionValue("", "email_address")
-    let first_config = config.getSectionValue(book_base_name, "first")
-    let count_config = config.getSectionValue(book_base_name, "count")
-
     let full_book_path = absolutePath(book)
 
     let path_to_pdf = create_pdf(full_book_path)
 
     let pages_folder = create_png_pages(path_to_pdf)
 
-    # send_daily_email(email_address=email_address,
-    #                  book=book,
-    #                  first=first,
-    #                  count=new_pages,
-    #                  config=config)
+    var files_to_attach: seq[string] = @[]
+    for i in first..(first+new_pages):
+        let current_page = absolutePath(pages_folder / &"page-{i:03}.png")
+        files_to_attach.add(current_page)
+
+    # let book_base_name = os.splitFile(book)[1]
+    # var config = loadConfig("config.cfg")
+    # let email_address = config.getSectionValue("", "email_address")
+    # let first_config = config.getSectionValue(book_base_name, "first")
+    # let count_config = config.getSectionValue(book_base_name, "count")
+    # let mailgun_sender = config.getSectionValue("mailgun", "sender")
+    # let mailgun_api_key = config.getSectionValue("mailgun", "api_key")
+    # let mailgun_api_url = config.getSectionValue("mailgun", "api_url")
+    # let subject = &"DailyReader: {os.splitFile(full_book_path)[1]}"
+
+    # let multipart_message = create_message(mailgun_sender, email_address, subject, files_to_attach) 
+    # send_message_mailgun(multipart_message, mailgun_api_key, mailgun_api_url)
 
     echo("Done!")
 
@@ -112,47 +118,34 @@ proc create_png_pages(path_to_pdf: string): string =
     os.setCurrentDir(previousDir)
     return result
 
-## TODO - Break this up into create_message/send_message
-proc send_daily_email(email_address: string,
-                      book: string,
-                      first=1,
-                      count=5,
-                      config: Config) =
 
-    let mailgun_sender = config.getSectionValue("mailgun", "sender")
+proc create_message( from_address, to_address, subject: string, files_to_attach: seq[string]): MultipartData = 
+    ## Create the MultipartData message with the needed attachments
+
+    let image_tags = files_to_attach.mapIt(&"""<img src="cid:{extractFilename(it)}">""").join("")
 
     let data = {
-        "from": &"DailyReader <{mailgun_sender}>",
-        "to": email_address,
-        "subject": &"DailyReader: {os.splitFile(book)[1]}",
+        "from": &"DailyReader <{from_address}>",
+        "to": to_address,
+        "subject": subject,
         "text": "There is no alternative plain text message!",
-        "html": """<html>
-                    <img src="cid:page-037.png">
-                    <img src="cid:page-038.png">
-                    <img src="cid:page-039.png">
-                    <img src="cid:page-040.png">
-                    <img src="cid:page-041.png">
-                   </html>""",
+        "html": &"<html>{image_tags}</html>",
     }
 
+    result = newMultipartData(data)
+    result.addFiles(files_to_attach.mapIt((name:"inline", file:it)))
+
+    return result
+
+
+proc send_message_mailgun(multipart_message: MultipartData, api_key, api_url: string ) = 
+    ## Make the HTTP post with the proper authorization headers
     var client = newHttpClient()
 
-    let mailgun_api_key = config.getSectionValue("mailgun", "api_key")
-    let mailgun_api_url = config.getSectionValue("mailgun", "api_url")
-
-    let encoded_credentials = encode(&"api:{mailgun_api_key}")
+    let encoded_credentials = encode(&"api:{api_key}")
     client.headers = newHttpHeaders({"Authorization": &"Basic {encoded_credentials}"})
 
-    var multipart = newMultipartData(data)
-    multipart.addFiles({
-        "inline": "books/EffectiveExecutive_pages/page-037.png",
-        "inline": "books/EffectiveExecutive_pages/page-038.png",
-        "inline": "books/EffectiveExecutive_pages/page-039.png",
-        "inline": "books/EffectiveExecutive_pages/page-040.png",
-        "inline": "books/EffectiveExecutive_pages/page-041.png",
-    })
-
-    echo(client.postContent(mailgun_api_url, multipart = multipart))
+    echo(client.postContent(api_url, multipart = multipart_message))
 
 
 when isMainModule:
