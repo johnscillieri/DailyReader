@@ -14,6 +14,7 @@ template get_filename: string = instantiationInfo().filename.splitFile()[1]
 const app_name = get_filename()
 
 const version = &"{app_name} 0.8b"
+const config_path = "config.cfg"
 
 const usage_text = &"""
 
@@ -53,11 +54,20 @@ pages 10-15, inclusive.
 proc main() =
     commandline:
         argument book, string
-        option first, int, "first", "f"
-        option new_pages, int, "new-pages", "n"
+        option first_arg, int, "first", "f"
+        option new_pages_arg, int, "new-pages", "n"
         exitoption "help", "h", full_help_text
         exitoption "version", "v", version
         errormsg usage_text
+
+    var config = loadConfig(config_path)
+
+    let book_base_name = os.splitFile(book)[1]
+    let first_config = config.getSectionValue(book_base_name, "first") 
+    let new_pages_config = config.getSectionValue(book_base_name, "new_pages")
+
+    let first = if first_arg != 0: first_arg elif first_config != "": first_config.parseInt() else: 1
+    let new_pages = if new_pages_arg != 0: new_pages_arg elif new_pages_config != "": new_pages_config.parseInt() else: 5
 
     let full_book_path = absolutePath(book)
 
@@ -70,18 +80,22 @@ proc main() =
         let current_page = absolutePath(pages_folder / &"page-{i:03}.png")
         files_to_attach.add(current_page)
 
-    # let book_base_name = os.splitFile(book)[1]
-    # var config = loadConfig("config.cfg")
-    # let email_address = config.getSectionValue("", "email_address")
-    # let first_config = config.getSectionValue(book_base_name, "first")
-    # let count_config = config.getSectionValue(book_base_name, "count")
-    # let mailgun_sender = config.getSectionValue("mailgun", "sender")
-    # let mailgun_api_key = config.getSectionValue("mailgun", "api_key")
-    # let mailgun_api_url = config.getSectionValue("mailgun", "api_url")
-    # let subject = &"DailyReader: {os.splitFile(full_book_path)[1]}"
+    let email_address = config.getSectionValue("", "email_address")
+    let mailgun_sender = config.getSectionValue("mailgun", "sender")
+    let mailgun_api_key = config.getSectionValue("mailgun", "api_key")
+    let mailgun_api_url = config.getSectionValue("mailgun", "api_url")
+    let subject = &"DailyReader: {os.splitFile(full_book_path)[1]}"
 
-    # let multipart_message = create_message(mailgun_sender, email_address, subject, files_to_attach) 
-    # send_message_mailgun(multipart_message, mailgun_api_key, mailgun_api_url)
+    if mailgun_sender == "" or mailgun_api_key == "" or mailgun_api_url == "":
+        echo("ERROR: Missing one of the required mailgun settings: sender, api_key, or api_url")
+        return
+
+    let multipart_message = create_message(mailgun_sender, email_address, subject, files_to_attach) 
+    send_message_mailgun(multipart_message, mailgun_api_key, mailgun_api_url)
+
+    config.setSectionKey(book_base_name, "first", $(first+new_pages))
+    config.setSectionKey(book_base_name, "new_pages", $new_pages)
+    config.writeConfig(config_path)
 
     echo("Done!")
 
