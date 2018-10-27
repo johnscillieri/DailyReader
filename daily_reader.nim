@@ -3,31 +3,31 @@
 import base64
 import httpclient
 import os
-import parsecfg
 import sequtils
 import strformat
 import strutils
 
 import commandeer
+import parsetoml
 
 template get_filename: string = instantiationInfo().filename.splitFile()[1]
 const app_name = get_filename()
 
 const version = &"{app_name} 0.8b"
-const config_path = "config.cfg"
+const config_path = "config.toml"
 
 const usage_text = &"""
 
 Usage:
     {app_name} <book> [--first=<first>] [--new-pages=<number>]
     {app_name} (-h | --help)
-    {app_name} --version
+    {app_name} (-v | --version)
 
   Options:
     -f --first=<first>           First page to send
     -n --new-pages=<number>      Number of new pages to send
     -h --help                    Show this screen.
-    --version                    Show version.
+    -v --version                 Show version.
 """
 
 const full_help_text = &"""
@@ -60,14 +60,14 @@ proc main() =
         exitoption "version", "v", version
         errormsg usage_text
 
-    var config = loadConfig(config_path)
+    var config = parseFile(config_path)
 
     let book_base_name = os.splitFile(book)[1]
-    let first_config = config.getSectionValue(book_base_name, "first") 
-    let new_pages_config = config.getSectionValue(book_base_name, "new_pages")
+    let first_config = config{"books", book_base_name, "first"}.getInt(1)
+    let new_pages_config = config{"books", book_base_name, "new_pages"}.getInt(5)
 
-    let first = if first_arg != 0: first_arg elif first_config != "": first_config.parseInt() else: 1
-    let new_pages = if new_pages_arg != 0: new_pages_arg elif new_pages_config != "": new_pages_config.parseInt() else: 5
+    let first = if first_arg != 0: first_arg else: first_config
+    let new_pages = if new_pages_arg != 0: new_pages_arg else: new_pages_config
 
     let full_book_path = absolutePath(book)
 
@@ -80,22 +80,26 @@ proc main() =
         let current_page = absolutePath(pages_folder / &"page-{i:03}.png")
         files_to_attach.add(current_page)
 
-    let email_address = config.getSectionValue("", "email_address")
-    let mailgun_sender = config.getSectionValue("mailgun", "sender")
-    let mailgun_api_key = config.getSectionValue("mailgun", "api_key")
-    let mailgun_api_url = config.getSectionValue("mailgun", "api_url")
-    let subject = &"DailyReader: {os.splitFile(full_book_path)[1]}"
+    let email_address = config{"email_address"}.getStr("")
+    let mailgun_sender = config{"mailgun", "sender"}.getStr("")
+    let mailgun_api_key = config{"mailgun", "api_key"}.getStr("")
+    let mailgun_api_url = config{"mailgun", "api_url"}.getStr("")
+
+    if email_address == "":
+        echo("ERROR: Missing required email_address: run again with a -e to set.")
+        return
 
     if mailgun_sender == "" or mailgun_api_key == "" or mailgun_api_url == "":
         echo("ERROR: Missing one of the required mailgun settings: sender, api_key, or api_url")
         return
 
-    let multipart_message = create_message(mailgun_sender, email_address, subject, files_to_attach) 
+    let subject = &"DailyReader: {os.splitFile(full_book_path)[1]}"
+    let multipart_message = create_message(mailgun_sender, email_address, subject, files_to_attach)
     send_message_mailgun(multipart_message, mailgun_api_key, mailgun_api_url)
 
-    config.setSectionKey(book_base_name, "first", $(first+new_pages))
-    config.setSectionKey(book_base_name, "new_pages", $new_pages)
-    config.writeConfig(config_path)
+    config{"books", book_base_name, "first"} = ?(first+new_pages)
+    config{"books", book_base_name, "new_pages"} = ?new_pages
+    writeFile(config_path, config.toTomlString())
 
     echo("Done!")
 
@@ -123,17 +127,20 @@ proc create_png_pages(path_to_pdf: string): string =
         echo("PNG pages found, skipping creation...")
         return result
 
-    echo("Creating PNG pages...")
     let previousDir = os.getCurrentDir()
     os.createDir(result)
     os.setCurrentDir(result)
+
+    echo("Creating PNG pages...")
     let pages_command = &"pdftoppm -png -f 1 -l 0 -r 125 \"{path_to_pdf}\" page"
     discard os.execShellCmd(pages_command)
+
     os.setCurrentDir(previousDir)
+
     return result
 
 
-proc create_message( from_address, to_address, subject: string, files_to_attach: seq[string]): MultipartData = 
+proc create_message( from_address, to_address, subject: string, files_to_attach: seq[string]): MultipartData =
     ## Create the MultipartData message with the needed attachments
 
     let image_tags = files_to_attach.mapIt(&"""<img src="cid:{extractFilename(it)}">""").join("")
@@ -152,7 +159,7 @@ proc create_message( from_address, to_address, subject: string, files_to_attach:
     return result
 
 
-proc send_message_mailgun(multipart_message: MultipartData, api_key, api_url: string ) = 
+proc send_message_mailgun(multipart_message: MultipartData, api_key, api_url: string ) =
     ## Make the HTTP post with the proper authorization headers
     var client = newHttpClient()
 
