@@ -58,7 +58,7 @@ def main():
         email_address = input("Please provide an email address to use: ")
         config = {"books": {}, "email_address": email_address.strip()}
 
-    book_name = os.path.basename(args.book)
+    book_name = os.path.splitext(os.path.basename(args.book))[0]
 
     if book_name not in config["books"]:
         config["books"][book_name] = {"first": 1, "new_pages": 5}
