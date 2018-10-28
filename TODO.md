@@ -1,7 +1,5 @@
 # TODO
 
--   Better logging during execution (show pages sent)
--   Fix subject line to look like python version
 -   Convert cron to Nim app
 -   Allow passing email address & mailgun settings via command line
 -   Move missing config error cases to top of main

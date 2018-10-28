@@ -93,7 +93,11 @@ proc main() =
         echo("ERROR: Missing one of the required mailgun settings: sender, api_key, or api_url")
         return
 
-    let subject = &"DailyReader: {os.splitFile(full_book_path)[1]}"
+    let total_pages = len(toSeq(walkFiles(&"{pages_folder}/*.png")))
+    let percent = int((first + new_pages - 1) / total_pages * 100)
+    let subject = &"DailyReader: {os.splitFile(full_book_path)[1]} - page {first}-{first+new_pages-1} of {total_pages} ({percent}%)"
+    echo(subject)
+
     let multipart_message = create_message(mailgun_sender, email_address, subject, files_to_attach)
     send_message_mailgun(multipart_message, mailgun_api_key, mailgun_api_url)
 
