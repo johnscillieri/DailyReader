@@ -14,7 +14,7 @@ template get_filename: string = instantiationInfo().filename.splitFile()[1]
 const app_name = get_filename()
 
 const version = &"{app_name} 0.8b"
-const config_path = "config.toml"
+let config_path = getAppDir() / "config.toml"
 
 const usage_text = &"""
 
