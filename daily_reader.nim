@@ -62,24 +62,6 @@ proc main() =
 
     var config = parseFile(config_path)
 
-    let book_base_name = os.splitFile(book)[1]
-    let first_config = config{"books", book_base_name, "first"}.getInt(1)
-    let new_pages_config = config{"books", book_base_name, "new_pages"}.getInt(5)
-
-    let first = if first_arg != 0: first_arg else: first_config
-    let new_pages = if new_pages_arg != 0: new_pages_arg else: new_pages_config
-
-    let full_book_path = absolutePath(book)
-
-    let path_to_pdf = create_pdf(full_book_path)
-
-    let pages_folder = create_png_pages(path_to_pdf)
-
-    var files_to_attach: seq[string] = @[]
-    for i in first..(first+new_pages):
-        let current_page = absolutePath(pages_folder / &"page-{i:03}.png")
-        files_to_attach.add(current_page)
-
     let email_address = config{"email_address"}.getStr("")
     let mailgun_sender = config{"mailgun", "sender"}.getStr("")
     let mailgun_api_key = config{"mailgun", "api_key"}.getStr("")
@@ -93,13 +75,14 @@ proc main() =
         echo("ERROR: Missing one of the required mailgun settings: sender, api_key, or api_url")
         return
 
-    let total_pages = len(toSeq(walkFiles(&"{pages_folder}/*.png")))
-    let percent = int((first + new_pages - 1) / total_pages * 100)
-    let subject = &"DailyReader: {os.splitFile(full_book_path)[1]} - page {first}-{first+new_pages-1} of {total_pages} ({percent}%)"
-    echo(subject)
+    let book_base_name = os.splitFile(book)[1]
+    let first_config = config{"books", book_base_name, "first"}.getInt(1)
+    let new_pages_config = config{"books", book_base_name, "new_pages"}.getInt(5)
 
-    let multipart_message = create_message(mailgun_sender, email_address, subject, files_to_attach)
-    send_message_mailgun(multipart_message, mailgun_api_key, mailgun_api_url)
+    let first = if first_arg != 0: first_arg else: first_config
+    let new_pages = if new_pages_arg != 0: new_pages_arg else: new_pages_config
+
+    send_batch_of_pages()
 
     config{"books", book_base_name, "first"} = ?(first+new_pages)
     config{"books", book_base_name, "new_pages"} = ?new_pages
@@ -108,9 +91,28 @@ proc main() =
     echo("Done!")
 
 
+proc send_batch_of_pages() =
+    let path_to_pdf = create_pdf(book)
+
+    let pages_folder = create_png_pages(path_to_pdf)
+
+    var files_to_attach: seq[string] = @[]
+    for i in first..(first+new_pages):
+        let current_page = absolutePath(pages_folder / &"page-{i:03}.png")
+        files_to_attach.add(current_page)
+
+    let total_pages = len(toSeq(walkFiles(&"{pages_folder}/*.png")))
+    let percent = int((first + new_pages - 1) / total_pages * 100)
+    let subject = &"DailyReader: {os.splitFile(book)[1]} - page {first}-{first+new_pages-1} of {total_pages} ({percent}%)"
+    echo(subject)
+
+    let multipart_message = create_message(mailgun_sender, email_address, subject, files_to_attach)
+    send_message_mailgun(multipart_message, mailgun_api_key, mailgun_api_url)
+
+
 proc create_pdf(path_to_book: string): string =
     ## Call ebook-convert to create a PDF from the provided book
-    result = changeFileExt(path_to_book, "pdf")
+    result = changeFileExt(absolutePath(path_to_book), "pdf")
 
     if os.fileExists(result):
         echo("PDF found, skipping conversion...")
