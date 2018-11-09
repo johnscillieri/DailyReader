@@ -89,7 +89,8 @@ proc main() =
     var files_to_attach: seq[string] = @[]
     for i in first..(first+new_pages):
         let current_page = absolutePath(pages_folder / &"page-{i:03}.png")
-        files_to_attach.add(current_page)
+        if os.fileExists(current_page):
+            files_to_attach.add(current_page)
 
     let total_pages = len(toSeq(walkFiles(&"{pages_folder}/*.png")))
     let percent = int((first + new_pages - 1) / total_pages * 100)
