@@ -82,16 +82,6 @@ proc main() =
     let first = if first_arg != 0: first_arg else: first_config
     let new_pages = if new_pages_arg != 0: new_pages_arg else: new_pages_config
 
-    send_batch_of_pages()
-
-    config{"books", book_base_name, "first"} = ?(first+new_pages)
-    config{"books", book_base_name, "new_pages"} = ?new_pages
-    writeFile(config_path, config.toTomlString())
-
-    echo("Done!")
-
-
-proc send_batch_of_pages() =
     let path_to_pdf = create_pdf(book)
 
     let pages_folder = create_png_pages(path_to_pdf)
@@ -108,6 +98,12 @@ proc send_batch_of_pages() =
 
     let multipart_message = create_message(mailgun_sender, email_address, subject, files_to_attach)
     send_message_mailgun(multipart_message, mailgun_api_key, mailgun_api_url)
+
+    config{"books", book_base_name, "first"} = ?(first+new_pages)
+    config{"books", book_base_name, "new_pages"} = ?new_pages
+    writeFile(config_path, config.toTomlString())
+
+    echo("Done!")
 
 
 proc create_pdf(path_to_book: string): string =
