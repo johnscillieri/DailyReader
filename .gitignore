@@ -4,5 +4,6 @@ books
 config.toml
 config.cfg
 *.pyc
-daily_reader
 tags
+nimcache_*
+bin/*
