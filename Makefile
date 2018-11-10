@@ -67,3 +67,4 @@ endif
 
 clean:
 	rm -rf ./bin/*
+	rm -rf ./nimcache_*
