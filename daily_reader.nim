@@ -66,13 +66,13 @@ proc main() =
 
     var config = parseFile(config_path)
 
-    let email_address = config{"email_address"}.getStr("")
-    let mailgun_sender = config{"mailgun", "sender"}.getStr("")
-    let mailgun_api_key = config{"mailgun", "api_key"}.getStr("")
-    let mailgun_api_url = config{"mailgun", "api_url"}.getStr("")
+    let email_address = config{"email", "address"}.getStr("")
+    let mailgun_sender = config{"email", "mailgun", "sender"}.getStr("")
+    let mailgun_api_key = config{"email", "mailgun", "api_key"}.getStr("")
+    let mailgun_api_url = config{"email", "mailgun", "api_url"}.getStr("")
 
     if email_address == "":
-        echo("ERROR: Missing required email_address: run again with a -e to set.")
+        echo("ERROR: Missing required email address config value")
         return
 
     if mailgun_sender == "" or mailgun_api_key == "" or mailgun_api_url == "":
@@ -101,10 +101,12 @@ proc main() =
         return
 
     var files_to_attach: seq[string] = @[]
-    for i in first..(first+new_pages):
+    # first-1 so that you send the last previously read page for context
+    for i in (first-1)..<(first+new_pages):
         let current_page = absolutePath(pages_folder / &"page-{i:03}.png")
         if os.fileExists(current_page):
             files_to_attach.add(current_page)
+            echo(&"Added {current_page}...")
 
     let multipart_message = create_message(mailgun_sender, email_address, subject, files_to_attach)
     send_message_mailgun(multipart_message, mailgun_api_key, mailgun_api_url)
