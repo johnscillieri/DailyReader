@@ -29,7 +29,7 @@ Usage:
 const full_help_text = &"""
 {version}
 
-Renames a given book using ebook-meta from Calibre.
+Renames a given book using the ebook-meta tool from Calibre
 
 Uses the format: <TITLE> - <AUTHOR> - <YEAR>.ext
 {usage_text}
