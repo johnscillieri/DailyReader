@@ -2,10 +2,12 @@
 
 import base64
 import httpclient
+import math
 import os
 import sequtils
 import strformat
 import strutils
+import times
 
 import commandeer
 import parsetoml
@@ -19,13 +21,14 @@ let config_path = getAppDir() / "config.toml"
 const usage_text = &"""
 
 Usage:
-    {app_name} <book> [--first=<first>] [--new-pages=<number>]
+    {app_name} <book> [--first=<first>] [--new-pages=<number>] [--force]
     {app_name} (-h | --help)
     {app_name} (-v | --version)
 
   Options:
     -f --first=<first>           First page to send
     -n --new-pages=<number>      Number of new pages to send
+    -F --force                   Override the 10 page max safety check
     -h --help                    Show this screen.
     -v --version                 Show version.
 """
@@ -56,6 +59,7 @@ proc main() =
         argument book, string
         option first_arg, int, "first", "f"
         option new_pages_arg, int, "new-pages", "n"
+        option force, bool, "force", "F"
         exitoption "help", "h", full_help_text
         exitoption "version", "v", version
         errormsg usage_text
@@ -77,14 +81,24 @@ proc main() =
 
     let book_base_name = os.splitFile(book)[1]
     let first_config = config{"books", book_base_name, "first"}.getInt(1)
-    let new_pages_config = config{"books", book_base_name, "new_pages"}.getInt(5)
-
-    let first = if first_arg != 0: first_arg else: first_config
-    let new_pages = if new_pages_arg != 0: new_pages_arg else: new_pages_config
 
     let path_to_pdf = create_pdf(book)
 
     let pages_folder = create_png_pages(path_to_pdf)
+    let total_pages = len(toSeq(walkFiles(&"{pages_folder}/*.png")))
+
+    let first = if first_arg != 0: first_arg else: first_config
+
+    let new_pages_default = num_pages_to_send( current_page=first, total_pages=total_pages )
+    let new_pages = if new_pages_arg != 0: new_pages_arg else: new_pages_default
+
+    let percent = int((first + new_pages - 1) / total_pages * 100)
+    let subject = &"DailyReader: {os.splitFile(book)[1]} - page {first}-{first+new_pages-1} of {total_pages} ({percent}%)"
+    echo(subject)
+
+    if new_pages > 10 and force == false:
+        echo("ERROR: Attempting to send more than 10 pages without the force flag.")
+        return
 
     var files_to_attach: seq[string] = @[]
     for i in first..(first+new_pages):
@@ -92,19 +106,24 @@ proc main() =
         if os.fileExists(current_page):
             files_to_attach.add(current_page)
 
-    let total_pages = len(toSeq(walkFiles(&"{pages_folder}/*.png")))
-    let percent = int((first + new_pages - 1) / total_pages * 100)
-    let subject = &"DailyReader: {os.splitFile(book)[1]} - page {first}-{first+new_pages-1} of {total_pages} ({percent}%)"
-    echo(subject)
-
     let multipart_message = create_message(mailgun_sender, email_address, subject, files_to_attach)
     send_message_mailgun(multipart_message, mailgun_api_key, mailgun_api_url)
 
     config{"books", book_base_name, "first"} = ?(first+new_pages)
-    config{"books", book_base_name, "new_pages"} = ?new_pages
     writeFile(config_path, config.toTomlString())
 
     echo("Done!")
+
+
+proc num_pages_to_send( current_page, total_pages: int ): int =
+    ## This function calculates the correct number of pages to send for today.
+    ##
+    ## Internally it references the current month and day to determine how to
+    ## finish a book of length (total_pages) by the end of the month.
+    let now = times.now()
+    let days_in_month = times.getDaysInMonth(now.month, now.year)
+    let pages_left = total_pages - current_page
+    result = math.floorDiv(pages_left, days_in_month - (now.monthday-1))
 
 
 proc create_pdf(path_to_book: string): string =
