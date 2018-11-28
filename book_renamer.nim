@@ -59,22 +59,21 @@ proc main() =
 
 template between( source, start_token, end_token: string ): string =
     let first_parts = source.split( start_token )
-    if len(first_parts) <= 1:
+    if len( first_parts ) <= 1:
         ""
     else:
         first_parts[1].split( end_token )[0].strip()
 
 
 proc create_new_base_name( ebook_meta_output: string ): string =
-    let title = ebook_meta_output.between("Title               : ", "\n")
+    let title = ebook_meta_output.between( "Title               : ", "\n" )
     result = title
 
-    let author = ebook_meta_output.between("Author(s)           : ", "[").split("\n")[0]
+    let author = ebook_meta_output.between( "Author(s)           : ", "[" ).split( "\n" )[0]
     if author != "":
         result &= " - " & author
 
-    let year = ebook_meta_output.between("Published           : ", "-").split("\n")[0]
-
+    let year = ebook_meta_output.between( "Published           : ", "-" ).split( "\n" )[0]
     if year != "":
         result &= " - " & year
 
