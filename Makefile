@@ -37,7 +37,7 @@ DEBUG_FLAGS = \
 	--linetrace: on \
 	--verbosity: 1
 
-all: release debug package
+all: release debug package book_renamer
 
 release: ./bin/$(RELEASE_BIN)
 
@@ -45,10 +45,17 @@ debug: ./bin/$(DEBUG_BIN)
 
 package: ./bin/$(BIN_NAME)
 
+book_renamer: ./bin/book_renamer
+
 ./bin/$(RELEASE_BIN): $(SOURCES)
 	nim $(SHARED_FLAGS) $(RELEASE_FLAGS) --out:$(RELEASE_BIN) c $(BIN_NAME) && \
 	mkdir -p bin && \
 	mv $(RELEASE_BIN) bin
+
+./bin/book_renamer: book_renamer.nim
+	nim $(SHARED_FLAGS) $(RELEASE_FLAGS) c book_renamer && \
+	mkdir -p bin && \
+	mv book_renamer bin
 
 ./bin/$(DEBUG_BIN): $(SOURCES)
 	nim $(SHARED_FLAGS) $(DEBUG_FLAGS) --out:$(DEBUG_BIN) c $(BIN_NAME) && \

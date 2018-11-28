@@ -1,5 +1,9 @@
 {.experimental: "codeReordering".}
 
+## ToDo
+## Fix bad shell characters
+## Maybe move "The" to the end
+
 import os
 import osproc
 import sequtils
