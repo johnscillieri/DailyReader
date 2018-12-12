@@ -17,10 +17,5 @@ pages 10-15, inclusive.
 
 ## Requirements
 
--   Python 3.6
--   docopt (python)
--   toml (python)
--   google-api-python-client (python)
--   oauth2client (python)
 -   Calibre (for ebook_convert)
 -   pdftoppm (for the PDF->PNG process)
