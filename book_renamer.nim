@@ -21,13 +21,14 @@ const version = &"{app_name} 0.5b"
 const usage_text = &"""
 
 Usage:
-    {app_name} <book>
+    {app_name} <book> [--dry-run]
     {app_name} (-h | --help)
     {app_name} (-v | --version)
 
   Options:
-    -h --help                    Show this screen.
-    -v --version                 Show version.
+    -d --dry-run                Output new title but don't actually rename book
+    -h --help                   Show this screen.
+    -v --version                Show version.
 """
 
 const full_help_text = &"""
