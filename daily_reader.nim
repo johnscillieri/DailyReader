@@ -137,7 +137,7 @@ proc create_pdf(path_to_book: string): string =
         return result
 
     echo("Converting book to pdf...")
-    let convert_command = &"ebook-convert \"{path_to_book}\" \"{result}\""
+    let convert_command = &"ebook-convert \"{path_to_book}\" \"{result}\" --pdf-page-margin-bottom=36 --pdf-page-margin-top=18 --pdf-page-numbers --pdf-default-font-size=24"
     discard os.execShellCmd(convert_command)
     return result
 
@@ -156,7 +156,7 @@ proc create_png_pages(path_to_pdf: string): string =
     os.setCurrentDir(result)
 
     echo("Creating PNG pages...")
-    let pages_command = &"pdftoppm -png -f 1 -l 0 -r 125 \"{path_to_pdf}\" page"
+    let pages_command = &"pdftoppm -png -f 1 -l 0 \"{path_to_pdf}\" page"
     discard os.execShellCmd(pages_command)
 
     os.setCurrentDir(previousDir)
