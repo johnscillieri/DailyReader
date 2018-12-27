@@ -16,19 +16,24 @@ template get_filename: string = instantiationInfo().filename.splitFile()[1]
 const app_name = get_filename()
 
 const version = &"{app_name} 0.9b"
-let config_path = getAppDir() / "config.toml"
+let config_path = get_config_dir(app_name) / "config.toml"
 
 const usage_text = &"""
 
 Usage:
-    {app_name} <book> [--first=<first>] [--new-pages=<number>] [--force]
+    {app_name} <book> [--start=<start>] [--new-pages=<number>] [--force]
     {app_name} (-h | --help)
     {app_name} (-v | --version)
 
   Options:
-    -f --first=<first>           First page to send
+    -s --start=<page num>        Page number to start from
     -n --new-pages=<number>      Number of new pages to send
     -F --force                   Override the 10 page max safety check
+    -f --from=<address>          Email address to send from
+    -t --to=<address>            Email address to send to
+    -U --mailgun-url=<url>       Mailgun API URL
+    -K --mailgun-key=<key>       Mailgun API Key
+
     -h --help                    Show this screen.
     -v --version                 Show version.
 """
@@ -57,7 +62,7 @@ pages 10-15, inclusive.
 proc main() =
     commandline:
         argument book, string
-        option first_arg, int, "first", "f"
+        option start_arg, int, "start", "s"
         option new_pages_arg, int, "new-pages", "n"
         option force, bool, "force", "F"
         exitoption "help", "h", full_help_text
@@ -79,21 +84,20 @@ proc main() =
         echo("ERROR: Missing one of the required mailgun settings: sender, api_key, or api_url")
         return
 
-    let book_base_name = os.splitFile(book)[1]
-    let first_config = config{"books", book_base_name, "first"}.getInt(1)
-
     let path_to_pdf = create_pdf(book)
 
     let pages_folder = create_png_pages(path_to_pdf)
     let total_pages = len(toSeq(walkFiles(&"{pages_folder}/*.png")))
 
-    let first = if first_arg != 0: first_arg else: first_config
+    let book_base_name = os.splitFile(book)[1]
+    let start_config = config{"books", book_base_name, "start"}.getInt(1)
+    let start = if start_arg != 0: start_arg else: start_config
 
-    let new_pages_default = num_pages_to_send( current_page=first, total_pages=total_pages )
+    let new_pages_default = num_pages_to_send( current_page=start, total_pages=total_pages )
     let new_pages = if new_pages_arg != 0: new_pages_arg else: new_pages_default
 
-    let percent = int((first + new_pages - 1) / total_pages * 100)
-    let subject = &"DailyReader: {os.splitFile(book)[1]} - page {first}-{first+new_pages-1} of {total_pages} ({percent}%)"
+    let percent = int((start + new_pages - 1) / total_pages * 100)
+    let subject = &"DailyReader: {os.splitFile(book)[1]} - page {start}-{start+new_pages-1} of {total_pages} ({percent}%)"
     echo(subject)
 
     if new_pages > 10 and force == false:
@@ -101,8 +105,8 @@ proc main() =
         return
 
     var files_to_attach: seq[string] = @[]
-    # first-1 so that you send the last previously read page for context
-    for i in (first-1)..<(first+new_pages):
+    # start-1 so that you send the last previously read page for context
+    for i in (start-1)..<(start+new_pages):
         let current_page = absolutePath(pages_folder / &"page-{i:03}.png")
         if os.fileExists(current_page):
             files_to_attach.add(current_page)
@@ -111,10 +115,22 @@ proc main() =
     let multipart_message = create_message(mailgun_sender, email_address, subject, files_to_attach)
     send_message_mailgun(multipart_message, mailgun_api_key, mailgun_api_url)
 
-    config{"books", book_base_name, "first"} = ?(first+new_pages)
+    config{"books", book_base_name, "start"} = ?(start+new_pages)
     writeFile(config_path, config.toTomlString())
 
     echo("Done!")
+
+
+proc get_config_dir( app_name: string ): string =
+    result = getEnv("XDG_CONFIG_HOME")
+    if result != "":
+        return result / app_name
+
+    if existsEnv("HOME") == false:
+        echo("WARNING: Couldn't read $XDG_CONFIG_HOME or $HOME. Using the current application directory as the config file location.")
+        return getAppDir()
+
+    return getEnv("HOME") / ".config" / app_name
 
 
 proc num_pages_to_send( current_page, total_pages: int ): int =

@@ -1,6 +1,7 @@
 # TODO
 
 -   Move creation of intermediate documents to a local data directory
+-   Handle missing config dir and missing config file
 -   Write config to the user's config directory
 -   Read ebook_convert arguments from config file
 -   Read pdftoppm arguments from config file
