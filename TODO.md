@@ -5,8 +5,9 @@
 -   Read ebook_convert arguments from config file
 -   Read pdftoppm arguments from config file
 -   Cleanup the intermediate documents (pdf if epub, pngs always) when done
--   Allow passing email address & mailgun settings via command line
+-   Allow passing all settings via command line
 -   Cleanup main function
+-   Support maintaining lists of books
 -   Send a message (Pick a new book!) & exit if first page > last available page
 
 ## XDG Notes
