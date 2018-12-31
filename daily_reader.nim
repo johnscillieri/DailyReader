@@ -16,7 +16,6 @@ template get_filename: string = instantiationInfo().filename.splitFile()[1]
 const app_name = get_filename()
 
 const version = &"{app_name} 0.9b"
-let config_path = get_config_dir(app_name) / "config.toml"
 
 const usage_text = &"""
 
@@ -28,7 +27,7 @@ Usage:
   Options:
     -s --start=<page num>        Page number to start from
     -n --new-pages=<number>      Number of new pages to send
-    -F --force                   Override the 10 page max safety check
+    -F --force                   Override the 20 page max safety check
     -f --from=<address>          Email address to send from
     -t --to=<address>            Email address to send to
     -U --mailgun-url=<url>       Mailgun API URL
@@ -69,6 +68,7 @@ proc main() =
         exitoption "version", "v", version
         errormsg usage_text
 
+    let config_path = get_config_dir(app_name) / "config.toml"
     var config = parseFile(config_path)
 
     let email_address = config{"email", "address"}.getStr("")
@@ -95,13 +95,15 @@ proc main() =
 
     let new_pages_default = num_pages_to_send( current_page=start, total_pages=total_pages )
     let new_pages = if new_pages_arg != 0: new_pages_arg else: new_pages_default
+    echo(&"Current Page: {start}, preparing to send {new_pages} pages...")
 
     let percent = int((start + new_pages - 1) / total_pages * 100)
     let subject = &"DailyReader: {os.splitFile(book)[1]} - page {start}-{start+new_pages-1} of {total_pages} ({percent}%)"
     echo(subject)
 
-    if new_pages > 10 and force == false:
-        echo("ERROR: Attempting to send more than 10 pages without the force flag.")
+    # TODO - make this a setting in the config file
+    if new_pages > 20 and force == false:
+        echo("ERROR: Attempting to send more than 20 pages without the force flag.")
         return
 
     var files_to_attach: seq[string] = @[]
@@ -140,7 +142,9 @@ proc num_pages_to_send( current_page, total_pages: int ): int =
     ## finish a book of length (total_pages) by the end of the month.
     let now = times.now()
     let days_in_month = times.getDaysInMonth(now.month, now.year)
-    let pages_left = total_pages - current_page
+
+    # +1 to include the current page
+    let pages_left = total_pages - current_page + 1
     result = math.floorDiv(pages_left, days_in_month - (now.monthday-1))
 
 
