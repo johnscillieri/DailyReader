@@ -68,8 +68,13 @@ proc main() =
         exitoption "version", "v", version
         errormsg usage_text
 
-    let config_path = get_config_dir(app_name) / "config.toml"
-    var config = parseFile(config_path)
+    let config_dir = os.getConfigDir() / app_name
+    createDir(config_dir)
+    let cache_dir = get_cache_dir(app_name)
+    createDir(cache_dir)
+
+    let config_file_path = config_dir / "config.toml"
+    var config = parseFile(config_file_path)
 
     let email_address = config{"email", "address"}.getStr("")
     let mailgun_sender = config{"email", "mailgun", "sender"}.getStr("")
@@ -84,7 +89,7 @@ proc main() =
         echo("ERROR: Missing one of the required mailgun settings: sender, api_key, or api_url")
         return
 
-    let path_to_pdf = create_pdf(book)
+    let path_to_pdf = create_pdf(book, cache_dir)
 
     let pages_folder = create_png_pages(path_to_pdf)
     let total_pages = len(toSeq(walkFiles(&"{pages_folder}/*.png")))
@@ -118,21 +123,22 @@ proc main() =
     send_message_mailgun(multipart_message, mailgun_api_key, mailgun_api_url)
 
     config{"books", book_base_name, "start"} = ?(start+new_pages)
-    writeFile(config_path, config.toTomlString())
+    writeFile(config_file_path, config.toTomlString())
 
     echo("Done!")
 
 
-proc get_config_dir( app_name: string ): string =
-    result = getEnv("XDG_CONFIG_HOME")
+proc get_cache_dir( app_name: string ): string =
+    ## Read the path to the user's temporary cache directory
+    result = getEnv("XDG_CACHE_HOME")
     if result != "":
         return result / app_name
 
     if existsEnv("HOME") == false:
-        echo("WARNING: Couldn't read $XDG_CONFIG_HOME or $HOME. Using the current application directory as the config file location.")
+        echo("WARNING: Couldn't read $XDG_CACHE_HOME or $HOME. Using the current application directory as the cache file location.")
         return getAppDir()
 
-    return getEnv("HOME") / ".config" / app_name
+    return getEnv("HOME") / ".cache" / app_name
 
 
 proc num_pages_to_send( current_page, total_pages: int ): int =
@@ -148,16 +154,21 @@ proc num_pages_to_send( current_page, total_pages: int ): int =
     result = math.floorDiv(pages_left, days_in_month - (now.monthday-1))
 
 
-proc create_pdf(path_to_book: string): string =
+proc create_pdf(path_to_book, cache_dir: string): string =
     ## Call ebook-convert to create a PDF from the provided book
-    result = changeFileExt(absolutePath(path_to_book), "pdf")
+    result = cache_dir / changeFileExt(extractFilename(path_to_book), "pdf")
 
     if os.fileExists(result):
         echo("PDF found, skipping conversion...")
         return result
 
+    if splitFile(path_to_book)[2] == "pdf":
+        echo("Copying PDF to cache directory, skipping conversion...")
+        copyFile(absolutePath(path_to_book), result)
+        return result
+
     echo("Converting book to pdf...")
-    let convert_command = &"ebook-convert \"{path_to_book}\" \"{result}\" --pdf-page-margin-bottom=36 --pdf-page-margin-top=18 --pdf-page-numbers --pdf-default-font-size=24"
+    let convert_command = &"ebook-convert \"{absolutePath(path_to_book)}\" \"{result}\" --pdf-page-margin-bottom=36 --pdf-page-margin-top=18 --pdf-page-numbers --pdf-default-font-size=24"
     discard os.execShellCmd(convert_command)
     return result
 
