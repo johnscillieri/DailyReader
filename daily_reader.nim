@@ -20,11 +20,14 @@ const version = &"{app_name} 0.9b"
 const usage_text = &"""
 
 Usage:
-    {app_name} [options] <book>
+    {app_name} [options]
+    {app_name} add <book> [--position <index>]
+    {app_name} list
+    {app_name} remove (<book> | <position>)
     {app_name} (-h | --help)
     {app_name} (-v | --version)
 
-  Options:
+Options:
     -f --from=<address>             Email address to send from
     -t --to=<address>               Email address to send to
     -U --mailgun-url=<url>          Mailgun API URL
@@ -34,6 +37,7 @@ Usage:
     -F --force                      Override the 20 page max safety check
     -E --ebook-convert-args=<args>  String of arguments to pass to ebook-convert
     -P --pdftoppm-args=<args>       String of arguments to pass to pdftoppm
+    -N --no-send                    Don't send the email or update the start
 
     -h --help                       Show this screen.
     -v --version                    Show version.
@@ -47,15 +51,19 @@ Automates emailing pages from a book, keeping track of where you left off.
 Useful as a cron job to create a regular reading habit.
 
 Converts the book to a PDF for a stable rendering, then splits the pages of the
-pdf into individual PNGs to include inline in an email.
+PDF into individual PNGs to include inline in an email.
 
-Should support any format supported by Calibre (epub, mobi, pdf, etc)
+{app_name} should support any format Calibre does (epub, mobi, pdf, etc).
 
 The --new-pages argument is the number of NEW pages to send. The last page of
 the prior batch is included as the first page of the next email so the reader
 can maintain context. For example, if --new-pages is set to 5, and your last
 batch was pages 5-10, the next email that gets sent will be six pages long,
 pages 10-15, inclusive.
+
+If you'd like to just update your settings without sending an email (and
+changing the start page), use the --no-send flag. Also useful for debugging.
+
 {usage_text}
 """
 
