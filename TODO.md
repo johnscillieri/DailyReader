@@ -1,7 +1,6 @@
 # TODO
 
 -   Support list of books
--   Handle missing config file
 -   Cleanup main function
 
 ## List of Books TODOs

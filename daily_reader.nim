@@ -61,7 +61,14 @@ pages 10-15, inclusive.
 
 const ebook_convert_args_default = "--pdf-page-margin-bottom=36 --pdf-page-margin-top=18 --pdf-page-numbers --pdf-default-font-size=24"
 const pdftoppm_args_default = "-f 1 -l 0"
-
+const default_config = """
+[email]
+from = ""
+to = ""
+[email.mailgun]
+api_url = ""
+api_key = ""
+"""
 
 ## TODO - Break this up into parsing args & config & sending the message
 proc main() =
@@ -86,7 +93,8 @@ proc main() =
     createDir(cache_dir)
 
     let config_file_path = config_dir / "config.toml"
-    var config = parseFile(config_file_path)
+    var config = if existsFile(config_file_path): parseFile(config_file_path)
+                 else: parseString(default_config)
 
     let to_address = required( to_arg, config{"email", "to"}, "To Address" )
     let from_address = required( from_arg, config{"email", "from"}, "From Address" )
