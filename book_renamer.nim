@@ -3,6 +3,7 @@
 ## ToDo
 ## Fix bad shell characters
 ## Maybe move "The" to the end
+## Use fetch-ebook-metadata for missing fields?
 
 import os
 import osproc
