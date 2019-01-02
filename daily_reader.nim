@@ -20,7 +20,7 @@ const version = &"{app_name} 0.9b"
 const usage_text = &"""
 
 Usage:
-    {app_name} <book> [--start=<start>] [--new-pages=<number>] [--force]
+    {app_name} [options] <book>
     {app_name} (-h | --help)
     {app_name} (-v | --version)
 
