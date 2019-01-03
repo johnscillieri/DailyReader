@@ -105,29 +105,29 @@ proc main() =
     var config = if existsFile(config_file_path): parseFile(config_file_path)
                  else: parseString(default_config)
 
-    let to_address = required( to_arg, config{"email", "to"}, "To Address" )
-    let from_address = required( from_arg, config{"email", "from"}, "From Address" )
+    let to_address = required(to_arg, config{"email", "to"}, "To Address")
+    let from_address = required(from_arg, config{"email", "from"}, "From Address")
 
-    let mailgun_api_key = required( mailgun_key_arg, config{"email", "mailgun", "api_key"}, "Mailgun API Key" )
-    let mailgun_api_url = required( mailgun_url_arg, config{"email", "mailgun", "api_url"}, "Mailgun API URL" )
+    let mailgun_api_key = required(mailgun_key_arg, config{"email", "mailgun", "api_key"}, "Mailgun API Key")
+    let mailgun_api_url = required(mailgun_url_arg, config{"email", "mailgun", "api_url"}, "Mailgun API URL")
 
-    let ebook_convert_args = optional( ebook_convert_args_arg,
-                                       config{"general", "ebook_convert_args"},
-                                       ebook_convert_args_default )
+    let ebook_convert_args = optional(ebook_convert_args_arg,
+                                      config{"general", "ebook_convert_args"},
+                                      ebook_convert_args_default)
     let path_to_pdf = create_pdf(book, cache_dir, ebook_convert_args)
 
-    let pdftoppm_args = optional( pdftoppm_args_arg,
-                                  config{"general", "pdftoppm_args"},
-                                  pdftoppm_args_default )
+    let pdftoppm_args = optional(pdftoppm_args_arg,
+                                 config{"general", "pdftoppm_args"},
+                                 pdftoppm_args_default)
     let pages_folder = create_png_pages(path_to_pdf, pdftoppm_args)
 
     let total_pages = len(toSeq(walkFiles(&"{pages_folder}/*.png")))
 
     let book_base_name = os.splitFile(book)[1]
-    let start = optional( start_arg, config{"books", book_base_name, "start"}, 1 )
-    let new_pages = optional( new_pages_arg,
-                              config{"books", book_base_name, "new_pages"},
-                              num_pages_to_send( current_page=start, total_pages=total_pages ) )
+    let start = optional(start_arg, config{"books", book_base_name, "start"}, 1)
+    let new_pages = optional(new_pages_arg,
+                             config{"books", book_base_name, "new_pages"},
+                             num_pages_to_send(current_page = start, total_pages = total_pages))
 
     let percent = int((start + new_pages - 1) / total_pages * 100)
     let subject = &"DailyReader: {os.splitFile(book)[1]} - page {start}-{start+new_pages-1} of {total_pages} ({percent}%)"
@@ -164,7 +164,7 @@ proc main() =
     echo("Done!")
 
 
-proc get_cache_dir( app_name: string ): string =
+proc get_cache_dir(app_name: string): string =
     ## Read the path to the user's temporary cache directory
     result = getEnv("XDG_CACHE_HOME")
     if result != "":
@@ -177,7 +177,7 @@ proc get_cache_dir( app_name: string ): string =
     return getEnv("HOME") / ".cache" / app_name
 
 
-proc required[T]( arg: T, config_field: TomlValueRef, name: string): T =
+proc required[T](arg: T, config_field: TomlValueRef, name: string): T =
     when arg is string:
         if arg != "": return arg
         result = config_field.getStr("")
@@ -192,7 +192,7 @@ proc required[T]( arg: T, config_field: TomlValueRef, name: string): T =
     quit(-1)
 
 
-proc optional[T]( arg: T, config_field: TomlValueRef, default: T): T =
+proc optional[T](arg: T, config_field: TomlValueRef, default: T): T =
     when arg is string:
         if arg != "": return arg
         else: return config_field.getStr(default)
@@ -202,7 +202,7 @@ proc optional[T]( arg: T, config_field: TomlValueRef, default: T): T =
         else: return config_field.getInt(default)
 
 
-proc num_pages_to_send( current_page, total_pages: int ): int =
+proc num_pages_to_send(current_page, total_pages: int): int =
     ## This function calculates the correct number of pages to send for today.
     ##
     ## Internally it references the current month and day to determine how to
@@ -256,7 +256,7 @@ proc create_png_pages(path_to_pdf: string, pdftoppm_args: string): string =
     return result
 
 
-proc create_message( from_address, to_address, subject: string, files_to_attach: seq[string]): MultipartData =
+proc create_message(from_address, to_address, subject: string, files_to_attach: seq[string]): MultipartData =
     ## Create the MultipartData message with the needed attachments
 
     let image_tags = files_to_attach.mapIt(&"""<img src="cid:{extractFilename(it)}">""").join("")
@@ -270,12 +270,12 @@ proc create_message( from_address, to_address, subject: string, files_to_attach:
     }
 
     result = newMultipartData(data)
-    result.addFiles(files_to_attach.mapIt((name:"inline", file:it)))
+    result.addFiles(files_to_attach.mapIt((name: "inline", file: it)))
 
     return result
 
 
-proc send_message_mailgun(multipart_message: MultipartData, api_key, api_url: string ) =
+proc send_message_mailgun(multipart_message: MultipartData, api_key, api_url: string) =
     ## Make the HTTP post with the proper authorization headers
     var client = newHttpClient()
 
