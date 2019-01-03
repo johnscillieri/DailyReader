@@ -15,7 +15,7 @@ import parsetoml
 template get_filename: string = instantiationInfo().filename.splitFile()[1]
 const app_name = get_filename()
 
-const version = &"{app_name} 0.9b"
+const version = &"{app_name} 1.0"
 
 const usage_text = &"""
 
@@ -85,6 +85,7 @@ proc main() =
         option start_arg, int, "start", "s"
         option new_pages_arg, int, "new-pages", "n"
         option force, bool, "force", "F"
+        option no_send, bool, "no-send", "N"
         option from_arg, string, "from", "f"
         option to_arg, string, "to", "t"
         option mailgun_url_arg, string, "mailgun-url", "U"
