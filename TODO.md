@@ -2,6 +2,7 @@
 
 -   Support list of books
 -   Cleanup main function
+-   Check for calibre binaries in path, or use config variable if not found
 
 ## List of Books TODOs
 
@@ -14,7 +15,6 @@
 -   Cleanup the intermediate documents (pdf if epub, pngs always) when done
 -   Send a message (Pick a new book!) & exit if no books in list
 -   Cleanup the list of read books from the config file (on finish?)
--   Create the pdf and pages on addition
 -   Save stats for pages/books read (when finished)
 
 ## Scrap

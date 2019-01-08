@@ -77,7 +77,6 @@ api_url = ""
 api_key = ""
 """
 
-## TODO - Break this up into parsing args & config & sending the message
 proc main() =
     commandline:
         subcommand run, "run":
@@ -114,16 +113,34 @@ proc main() =
     var config = if existsFile(config_file_path): parseFile(config_file_path)
                  else: parseString(default_config)
 
-    # TODO update config from args so the config serves as the single source
+    if from_arg != "": config{"email", "from"} = ?from_arg
+    if config{"email", "from"}.getStr("") == "":
+        quit("ERROR: Missing required 'from' argument/config value. Exiting.")
+
+    if to_arg != "": config{"email", "to"} = ?to_arg
+    if config{"email", "to"}.getStr("") == "":
+        quit("ERROR: Missing required 'to' argument/config value. Exiting.")
+
+    if mailgun_url_arg != "": config{"email", "mailgun", "api_url"} = ?mailgun_url_arg
+    if config{"email", "mailgun", "api_url"}.getStr("") == "":
+        quit("ERROR: Missing required 'Mailgun API URL' argument/config value. Exiting.")
+
+    if mailgun_key_arg != "": config{"email", "mailgun", "api_key"} = ?mailgun_key_arg
+    if config{"email", "mailgun", "api_key"}.getStr("") == "":
+        quit("ERROR: Missing required 'Mailgun API Key' argument/config value. Exiting.")
+
+    if ebook_convert_args_arg != "": config{"general", "ebook_convert_args"} = ?ebook_convert_args_arg
+    if config{"general", "ebook_convert_args"}.getStr() == "": config{"general", "ebook_convert_args"} = ?ebook_convert_args_default
+
+    if pdftoppm_args_arg != "": config{"general", "pdftoppm_args"} = ?pdftoppm_args_arg
+    if config{"general", "pdftoppm_args"}.getStr() == "": config{"general", "pdftoppm_args"} = ?pdftoppm_args_default
 
     if run:
-        discard
-
-        # TODO if a book is finished, it should add it to a finished list
+        config.run(force)
+        # TODO - if a book is finished, it should add it to a finished list
 
     elif add:
         config.add_book(book, add_position)
-        writeFile(config_file_path, config.toTomlString())
 
     elif list:
         config.list_books()
@@ -131,78 +148,11 @@ proc main() =
     elif remove:
         # TODO Remove should clean up the cache
         config.remove_book(remove_position)
-        writeFile(config_file_path, config.toTomlString())
 
     else:
-        echo(usage_text)
-        quit(-1)
+        quit(usage_text)
 
-    # let to_address = required(to_arg, config{"email", "to"}, "To Address")
-    # let from_address = required(from_arg, config{"email", "from"}, "From Address")
-
-    # let mailgun_api_key = required(mailgun_key_arg, config{"email", "mailgun", "api_key"}, "Mailgun API Key")
-    # let mailgun_api_url = required(mailgun_url_arg, config{"email", "mailgun", "api_url"}, "Mailgun API URL")
-
-    # let ebook_convert_args = optional(ebook_convert_args_arg,
-    #                                   config{"general", "ebook_convert_args"},
-    #                                   ebook_convert_args_default)
-
-    # let pdftoppm_args = optional(pdftoppm_args_arg,
-    #                              config{"general", "pdftoppm_args"},
-    #                              pdftoppm_args_default)
-
-    # # This is definitely wrong here... if it's not add, it should read from config
-    # let book_base_name = os.splitFile(book)[1]
-
-    # if add:
-    #     let start = 1
-    #     ## TODO needs to update if present, create if not
-    #     config{"books"} = ?*[{ "name": book, "start": start }]
-
-    # else:
-    #     let path_to_pdf = create_pdf(book, cache_dir, ebook_convert_args)
-
-    #     let pages_folder = create_png_pages(path_to_pdf, pdftoppm_args)
-
-    #     let total_pages = len(toSeq(walkFiles(&"{pages_folder}/*.png")))
-
-    #     let start = optional(start_arg, config{"books", book_base_name, "start"}, 1)
-    #     let new_pages = optional(new_pages_arg,
-    #                             config{"books", book_base_name, "new_pages"},
-    #                             num_pages_to_send(current_page = start, total_pages = total_pages))
-
-    #     let percent = int((start + new_pages - 1) / total_pages * 100)
-    #     let subject = &"DailyReader: {os.splitFile(book)[1]} - page {start}-{start+new_pages-1} of {total_pages} ({percent}%)"
-    #     echo(subject)
-
-    #     # TODO - make this a setting in the config file
-    #     if new_pages > 20 and force == false:
-    #         echo("ERROR: Attempting to send more than 20 pages without the force flag.")
-    #         return
-
-    #     var files_to_attach: seq[string] = @[]
-    #     # start-1 so that you send the last previously read page for context
-    #     for i in (start-1)..<(start+new_pages):
-    #         let current_page = absolutePath(pages_folder / &"page-{i:03}.png")
-    #         if not os.fileExists(current_page): continue
-    #         files_to_attach.add(current_page)
-    #         echo(&"Added {current_page}...")
-
-    #     let multipart_message = create_message(from_address, to_address, subject, files_to_attach)
-    #     send_message_mailgun(multipart_message, mailgun_api_key, mailgun_api_url)
-
-    #     config{"books", book_base_name, "start"} = ?(start+new_pages)
-    #     # Set the config value for book.new_pages IFF the user set it
-    #     if new_pages_arg != 0 or config{"books", book_base_name, "new_pages"}.getInt(0) != 0:
-    #         config{"books", book_base_name, "new_pages"} = ?new_pages
-
-    # config{"email", "to"} = ?to_address
-    # config{"email", "from"} = ?from_address
-    # config{"email", "mailgun", "api_key"} = ?mailgun_api_key
-    # config{"email", "mailgun", "api_url"} = ?mailgun_api_url
-    # config{"general", "ebook_convert_args"} = ?ebook_convert_args
-    # config{"general", "pdftoppm_args"} = ?pdftoppm_args
-    # writeFile(config_file_path, config.toTomlString())
+    writeFile(config_file_path, config.toTomlString())
 
     echo("\nDone!")
 
@@ -220,8 +170,64 @@ proc get_cache_dir(app_name: string): string =
     return getEnv("HOME") / ".cache" / app_name
 
 
+proc run(config: TomlValueRef, force: bool) =
+
+    if not config.hasKey("books"):
+        quit("Couldn't run with no books. Add a book first and try again. Exiting.")
+
+    let book = config["books"].getElems()[0].getTable()
+    let book_base_name = book["name"].getStr()
+
+    let pages_folder = get_cache_dir(app_name) / &"{book_base_name}_pages"
+    let total_pages = len(toSeq(walkFiles(&"{pages_folder}/*.png")))
+    if total_pages == 0:
+        quit(&"ERROR: No pages were found in {pages_folder}. Exiting.")
+
+    let start = if book.hasKey("start"): book["start"].getInt() else: 1
+    let new_pages = if book.hasKey("new_pages"): book["new_pages"].getInt()
+                    else: num_pages_to_send(current_page = start, total_pages = total_pages)
+
+    let percent = int((start + new_pages - 1) / total_pages * 100)
+    let subject = &"DailyReader: {book_base_name} - page {start}-{start+new_pages-1} of {total_pages} ({percent}%)"
+    echo(subject)
+
+    # TODO - make this a setting in the config file
+    if new_pages > 20 and force == false:
+        quit("ERROR: Attempting to send more than 20 pages without the force flag.")
+
+    var files_to_attach: seq[string] = @[]
+    # start-1 so that you send the last previously read page for context
+    for i in (start-1)..<(start+new_pages):
+        let current_page = absolutePath(pages_folder / &"page-{i:03}.png")
+        if not os.fileExists(current_page): continue
+        files_to_attach.add(current_page)
+        echo(&"Added {current_page}...")
+
+    let multipart_message = create_message(config{"email", "from"}.getStr(),
+                                           config{"email", "to"}.getStr(),
+                                           subject,
+                                           files_to_attach)
+    send_message_mailgun(multipart_message,
+                         config{"email", "mailgun", "api_key"}.getStr(""),
+                         config{"email", "mailgun", "api_url"}.getStr(""))
+
+    book["start"] = ?(start+new_pages)
+
+    # TODO - needs to set the new_pages config appropriately
+    # Set the config value for book.new_pages IFF the user set it
+    # if new_pages_arg != 0 or config{"books", book_base_name, "new_pages"}.getInt(0) != 0:
+    #     config{"books", book_base_name, "new_pages"} = ?new_pages
+
+
 proc add_book(config: TomlValueRef, book: string, position: Natural) =
     echo(&"Adding book {book}...\n")
+
+    let cache_dir = get_cache_dir(app_name)
+    let ebook_convert_args = config{"general", "ebook_convert_args"}.getStr()
+    let path_to_pdf = create_pdf(book, cache_dir, ebook_convert_args)
+
+    let pdftoppm_args = config{"general", "pdftoppm_args"}.getStr()
+    let pages_folder = create_png_pages(path_to_pdf, pdftoppm_args)
 
     if not config.hasKey("books"):
         config{"books"} = ?*[{ "name": book, "start": 1 }]
@@ -238,6 +244,18 @@ proc add_book(config: TomlValueRef, book: string, position: Natural) =
 
     echo("Added successfully.\n")
     config.list_books()
+
+
+proc list_books( config: TomlValueRef ) =
+    echo("Listing books...\n")
+
+    if not config.hasKey("books"):
+        echo("No books found. Add one using the 'add' command.")
+        return
+
+    let books = config["books"].getElems()
+    for i, book in books:
+        echo( &"{i+1:03d} - {book[\"name\"].getStr()}")
 
 
 proc remove_book(config: TomlValueRef, position: Natural) =
@@ -263,44 +281,6 @@ proc remove_book(config: TomlValueRef, position: Natural) =
     config.list_books()
 
 
-
-proc list_books( config: TomlValueRef ) =
-    echo("Listing books...\n")
-
-    if not config.hasKey("books"):
-        echo("No books found. Add one using the 'add' command.")
-        return
-
-    let books = config["books"].getElems()
-    for i, book in books:
-        echo( &"{i+1:03d} - {book[\"name\"].getStr()}")
-
-
-proc required[T](arg: T, config_field: TomlValueRef, name: string): T =
-    when arg is string:
-        if arg != "": return arg
-        result = config_field.getStr("")
-        if result != "": return result
-
-    when arg is int:
-        if arg != 0: return arg
-        result = config_field.getInt(0)
-        if result != 0: return result
-
-    echo(&"ERROR: Missing required argument or config value: {name}")
-    quit(-1)
-
-
-proc optional[T](arg: T, config_field: TomlValueRef, default: T): T =
-    when arg is string:
-        if arg != "": return arg
-        else: return config_field.getStr(default)
-
-    when arg is int:
-        if arg != 0: return arg
-        else: return config_field.getInt(default)
-
-
 proc num_pages_to_send(current_page, total_pages: int): int =
     ## This function calculates the correct number of pages to send for today.
     ##
@@ -322,14 +302,17 @@ proc create_pdf(path_to_book, cache_dir: string, ebook_convert_args: string): st
         echo("PDF found, skipping conversion...")
         return result
 
-    if splitFile(path_to_book)[2] == "pdf":
+    if splitFile(path_to_book)[2].toLowerAscii() == ".pdf":
         echo("Copying PDF to cache directory, skipping conversion...")
         copyFile(absolutePath(path_to_book), result)
         return result
 
     echo("Converting book to pdf...")
     let convert_command = &"ebook-convert \"{absolutePath(path_to_book)}\" \"{result}\" {ebook_convert_args}"
-    discard os.execShellCmd(convert_command)
+    let return_code = os.execShellCmd(convert_command)
+    if return_code != 0:
+        quit(&"Error converting {path_to_book} to PDF. Exiting.")
+
     return result
 
 
