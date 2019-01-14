@@ -146,7 +146,6 @@ proc main() =
         config.list_books()
 
     elif remove:
-        # TODO Remove should clean up the cache
         config.remove_book(remove_position)
 
     else:
@@ -229,12 +228,14 @@ proc add_book(config: TomlValueRef, book: string, position: Natural) =
     let pdftoppm_args = config{"general", "pdftoppm_args"}.getStr()
     let pages_folder = create_png_pages(path_to_pdf, pdftoppm_args)
 
+    let base_name = changeFileExt(extractFilename(book), "")
+
     if not config.hasKey("books"):
-        config{"books"} = ?*[{ "name": book, "start": 1 }]
+        config{"books"} = ?*[{ "name": base_name, "start": 1 }]
 
     var current_list = config["books"].getElems()
 
-    let to_insert = ?*{ "name": book, "start": 1 }
+    let to_insert = ?*{ "name": base_name, "start": 1 }
     if position == 0 or position > current_list.high:
         current_list.add(to_insert)
     else:
@@ -276,8 +277,16 @@ proc remove_book(config: TomlValueRef, position: Natural) =
     echo(&"Removing {to_remove[\"name\"]}...")
     current_list.delete(position-1)
     config["books"] = ?current_list
-    echo("Removed successfully.\n")
 
+    let cache_dir = get_cache_dir(app_name)
+
+    let pdf_file = cache_dir / &"{to_remove[\"name\"]}.pdf"
+    removeFile(pdf_file)
+
+    let pages_folder = cache_dir / &"{to_remove[\"name\"]}_pages"
+    removeDir(pages_folder)
+
+    echo("Removed successfully.\n")
     config.list_books()
 
 
