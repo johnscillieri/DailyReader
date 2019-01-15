@@ -136,8 +136,7 @@ proc main() =
     if config{"general", "pdftoppm_args"}.getStr() == "": config{"general", "pdftoppm_args"} = ?pdftoppm_args_default
 
     if run:
-        config.run(force)
-        # TODO - if a book is finished, it should add it to a finished list
+        config.run(new_pages_arg, force)
 
     elif add:
         config.add_book(book, add_position)
@@ -169,7 +168,7 @@ proc get_cache_dir(app_name: string): string =
     return getEnv("HOME") / ".cache" / app_name
 
 
-proc run(config: TomlValueRef, force: bool) =
+proc run(config: TomlValueRef, new_pages_arg: int, force: bool) =
 
     if not config.hasKey("books"):
         quit("Couldn't run with no books. Add a book first and try again. Exiting.")
@@ -183,7 +182,8 @@ proc run(config: TomlValueRef, force: bool) =
         quit(&"ERROR: No pages were found in {pages_folder}. Exiting.")
 
     let start = if book.hasKey("start"): book["start"].getInt() else: 1
-    var new_pages = if book.hasKey("new_pages"): book["new_pages"].getInt()
+    var new_pages = if new_pages_arg > 0: new_pages_arg
+                    elif book.hasKey("new_pages"): book["new_pages"].getInt()
                     else: num_pages_to_send(current_page = start, total_pages = total_pages)
 
     if new_pages <= 0:
@@ -216,10 +216,25 @@ proc run(config: TomlValueRef, force: bool) =
 
     book["start"] = ?(start+new_pages)
 
-    # TODO - needs to set the new_pages config appropriately
     # Set the config value for book.new_pages IFF the user set it
-    # if new_pages_arg != 0 or config{"books", book_base_name, "new_pages"}.getInt(0) != 0:
-    #     config{"books", book_base_name, "new_pages"} = ?new_pages
+    if new_pages_arg > 0 or config{"books", book_base_name, "new_pages"}.getInt(0) != 0:
+        book["new_pages"] = ?new_pages
+
+    # More to go in the book, we're done for now...
+    if book["start"].getInt() <= total_pages: return
+
+    # You're done with the book!
+    echo(&"You finished {book_base_name}, congrats!")
+    var current_list = if config.hasKey("completed"): config["completed"].getElems()
+                        else: newSeq[TomlValueRef]()
+    let to_insert = ?*{ "name": book_base_name,
+                        "date": getDateStr(),
+                        "pages": total_pages }
+    current_list.add(to_insert)
+    config["completed"] = ?current_list
+
+    config.remove_book(1)
+
 
 
 proc add_book(config: TomlValueRef, book: string, position: Natural) =
