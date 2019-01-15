@@ -37,7 +37,6 @@ Options:
     -F --force                      Override the 20 page max safety check
     -E --ebook-convert-args=<args>  String of arguments to pass to ebook-convert
     -P --pdftoppm-args=<args>       String of arguments to pass to pdftoppm
-    -N --no-send                    Don't send the email or update the start
 
     -h --help                       Show this screen.
     -v --version                    Show version.
@@ -53,16 +52,21 @@ Useful as a cron job to create a regular reading habit.
 Converts the book to a PDF for a stable rendering, then splits the pages of the
 PDF into individual PNGs to include inline in an email.
 
-{app_name} should support any format Calibre does (epub, mobi, pdf, etc).
+{app_name} should support any source format Calibre does (epub, mobi, pdf, etc).
 
-The --new-pages argument is the number of NEW pages to send. The last page of
-the prior batch is included as the first page of the next email so the reader
-can maintain context. For example, if --new-pages is set to 5, and your last
-batch was pages 5-10, the next email that gets sent will be six pages long,
-pages 10-15, inclusive.
+All options are written to the config file after use, so you only have to pass
+them once.
 
-If you'd like to just update your settings without sending an email (and
-changing the start page), use the --no-send flag. Also useful for debugging.
+From, To, Mailgun URL, and Mailgun Key are required, either as arguments or
+via the config file. Everything else is truly optional.
+
+If --new-pages is not provided (the default), {app_name} will automatically
+calculate the correct number of pages to send so that you finish the book by
+the end of the month. The --new-pages argument is the number of NEW pages to
+send. The last page of the prior batch is included as the first page of the
+next email so the reader can maintain context. For example, if --new-pages is
+set to 5, and your last batch was pages 5-10, the next email that gets sent
+will be six pages long, pages 10-15, inclusive.
 {usage_text}
 """
 
@@ -80,7 +84,6 @@ api_key = ""
 proc main() =
     commandline:
         subcommand run, "run":
-            option no_send, bool, "no-send", "N"
             option force, bool, "force", "F"
         subcommand add, "add":
             argument book, string
@@ -234,7 +237,6 @@ proc run(config: TomlValueRef, new_pages_arg: int, force: bool) =
     config["completed"] = ?current_list
 
     config.remove_book(1)
-
 
 
 proc add_book(config: TomlValueRef, book: string, position: Natural) =
