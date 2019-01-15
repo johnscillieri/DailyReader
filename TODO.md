@@ -12,7 +12,6 @@
     -   dr add book [--position <num>]
     -   dr list
     -   dr (no arguments given, print help)
--   Cleanup the intermediate documents (pdf if epub, pngs always) when done
 -   Send a message (Pick a new book!) & exit if no books in list
 -   Cleanup the list of read books from the config file (on finish?)
 -   Save stats for pages/books read (when finished)

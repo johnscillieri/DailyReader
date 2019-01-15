@@ -96,8 +96,8 @@ proc main() =
         option to_arg, string, "to", "t"
         option mailgun_url_arg, string, "mailgun-url", "U"
         option mailgun_key_arg, string, "mailgun-key", "K"
-        option ebook_convert_args_arg, string, "ebook-convert-args", "E"
-        option pdftoppm_args_arg, string, "pdftoppm-args", "P"
+        option ebook_convert_args_cmdline, string, "ebook-convert-args", "E"
+        option pdftoppm_args_cmdline, string, "pdftoppm-args", "P"
         exitoption "help", "h", full_help_text
         exitoption "version", "v", version
         errormsg usage_text
@@ -129,10 +129,10 @@ proc main() =
     if config{"email", "mailgun", "api_key"}.getStr("") == "":
         quit("ERROR: Missing required 'Mailgun API Key' argument/config value. Exiting.")
 
-    if ebook_convert_args_arg != "": config{"general", "ebook_convert_args"} = ?ebook_convert_args_arg
+    if ebook_convert_args_cmdline != "": config{"general", "ebook_convert_args"} = ?ebook_convert_args_cmdline
     if config{"general", "ebook_convert_args"}.getStr() == "": config{"general", "ebook_convert_args"} = ?ebook_convert_args_default
 
-    if pdftoppm_args_arg != "": config{"general", "pdftoppm_args"} = ?pdftoppm_args_arg
+    if pdftoppm_args_cmdline != "": config{"general", "pdftoppm_args"} = ?pdftoppm_args_cmdline
     if config{"general", "pdftoppm_args"}.getStr() == "": config{"general", "pdftoppm_args"} = ?pdftoppm_args_default
 
     if run:
