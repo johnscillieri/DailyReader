@@ -183,8 +183,12 @@ proc run(config: TomlValueRef, force: bool) =
         quit(&"ERROR: No pages were found in {pages_folder}. Exiting.")
 
     let start = if book.hasKey("start"): book["start"].getInt() else: 1
-    let new_pages = if book.hasKey("new_pages"): book["new_pages"].getInt()
+    var new_pages = if book.hasKey("new_pages"): book["new_pages"].getInt()
                     else: num_pages_to_send(current_page = start, total_pages = total_pages)
+
+    if new_pages <= 0:
+        echo("New pages is <= 0 for some reason, setting to 1...")
+        new_pages = 1
 
     let percent = int((start + new_pages - 1) / total_pages * 100)
     let subject = &"DailyReader: {book_base_name} - page {start}-{start+new_pages-1} of {total_pages} ({percent}%)"
